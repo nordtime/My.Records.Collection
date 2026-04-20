@@ -10,11 +10,11 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'db.php') {
     exit('Access denied.');
 }
 
-// Load from environment variables with fallback to defaults for local dev
+// Load from environment variables (set via server config or .env)
 define('DB_HOST',    getenv('RC_DB_HOST')    ?: '127.0.0.1');
 define('DB_NAME',    getenv('RC_DB_NAME')    ?: 'record_collection');
-define('DB_USER',    getenv('RC_DB_USER')    ?: 'mtrecords');
-define('DB_PASS',    getenv('RC_DB_PASS')    ?: 'MTrecords@2022');
+define('DB_USER',    getenv('RC_DB_USER')    ?: '');
+define('DB_PASS',    getenv('RC_DB_PASS')    ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 /**
