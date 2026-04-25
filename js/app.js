@@ -517,8 +517,8 @@
             if (!force && err.status === 409) {
                 const dup = err.duplicate;
                 const msg = dup
-                    ? `"${dup.artist} — ${dup.album}" already exists. Add anyway?`
-                    : 'A record with the same artist and album already exists. Add anyway?';
+                    ? `"${dup.artist} — ${dup.album}" (${dup.format}) already exists. Add anyway?`
+                    : 'A record with the same artist, album, and format already exists. Add anyway?';
                 if (confirm(msg)) {
                     handleSave(e, true);
                 }

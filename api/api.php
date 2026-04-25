@@ -180,10 +180,10 @@ try {
                 break;
             }
 
-            // Duplicate check (artist + album, case-insensitive)
+            // Duplicate check (artist + album + format, case-insensitive)
             $force = isset($_GET['force']) && $_GET['force'] === '1';
             if (!$force) {
-                $dup = findDuplicate($pdo, trim($data['artist']), trim($data['album']));
+                $dup = findDuplicate($pdo, trim($data['artist']), trim($data['album']), $data['format'] ?? 'Vinyl');
                 if ($dup) {
                     http_response_code(409);
                     echo json_encode([
@@ -239,6 +239,11 @@ try {
                 break;
             }
 
+            // Fetch old record before update for cache invalidation
+            $stmt = $pdo->prepare('SELECT artist, album FROM records WHERE id = :id');
+            $stmt->execute([':id' => $id]);
+            $oldAlbum = $stmt->fetch();
+
             $coverUrl = cacheCoverUrl($data['cover_url'] ?? '');
 
             $stmt = $pdo->prepare('
@@ -276,10 +281,19 @@ try {
                     echo json_encode(['message' => 'Record updated.']);
                 }
             } else {
-                // Record changed — invalidate Discogs cache so it re-fetches with new info
+                // Record changed — invalidate caches so it re-fetches with new info
                 try {
                     ensureDiscogsCacheTable($pdo);
                     $pdo->prepare('DELETE FROM discogs_cache WHERE record_id = :rid')->execute([':rid' => $id]);
+
+                    // Invalidate track_cache for old AND new artist/album
+                    ensureTrackCacheTable($pdo);
+                    if ($oldAlbum) {
+                        $oldCacheKey = mb_strtolower(trim($oldAlbum['artist']) . '||' . trim($oldAlbum['album']));
+                        $pdo->prepare('DELETE FROM track_cache WHERE cache_key = ?')->execute([$oldCacheKey]);
+                    }
+                    $newCacheKey = mb_strtolower(trim($data['artist']) . '||' . trim($data['album']));
+                    $pdo->prepare('DELETE FROM track_cache WHERE cache_key = ?')->execute([$newCacheKey]);
                 } catch (\Throwable $e) {
                     // Non-critical — cache will expire naturally
                 }
@@ -340,9 +354,9 @@ try {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function findDuplicate(PDO $pdo, string $artist, string $album, ?int $excludeId = null): ?array {
-    $sql = 'SELECT id, artist, album FROM records WHERE LOWER(artist) = LOWER(:artist) AND LOWER(album) = LOWER(:album)';
-    $params = [':artist' => $artist, ':album' => $album];
+function findDuplicate(PDO $pdo, string $artist, string $album, string $format, ?int $excludeId = null): ?array {
+    $sql = 'SELECT id, artist, album, format FROM records WHERE LOWER(artist) = LOWER(:artist) AND LOWER(album) = LOWER(:album) AND format = :format';
+    $params = [':artist' => $artist, ':album' => $album, ':format' => $format];
     if ($excludeId !== null) {
         $sql .= ' AND id != :excludeId';
         $params[':excludeId'] = $excludeId;
@@ -862,16 +876,16 @@ function handleCsvImport(PDO $pdo): void {
         }
 
         // Skip duplicates (check against existing DB records)
-        $dup = findDuplicate($pdo, $artist, $album);
-        if ($dup) {
-            $skipped++;
-            $errors[] = "Row $lineNum: duplicate of existing record #{$dup['id']} ({$dup['artist']} — {$dup['album']}).";
-            continue;
-        }
-
         $format = trim($row['format'] ?? 'Vinyl');
         if (!in_array($format, $validFormats, true)) {
             $format = 'Vinyl';
+        }
+
+        $dup = findDuplicate($pdo, $artist, $album, $format);
+        if ($dup) {
+            $skipped++;
+            $errors[] = "Row $lineNum: duplicate of existing record #{$dup['id']} ({$dup['artist']} — {$dup['album']}, {$dup['format']}).";
+            continue;
         }
 
         $year = null;
@@ -1223,6 +1237,10 @@ function checkDiscogsRateLimit(): bool {
 }
 
 function getDiscogsToken(): string {
+    $env = getenv('DISCOGS_TOKEN');
+    if ($env !== false && $env !== '') {
+        return trim($env);
+    }
     if (is_file(DISCOGS_TOKEN_FILE)) {
         return trim(file_get_contents(DISCOGS_TOKEN_FILE));
     }
@@ -1348,7 +1366,7 @@ function handleDiscogsValue(PDO $pdo): void {
     $searchResp = httpGet($searchUrl, $headers, 12);
     if ($searchResp === false) {
         http_response_code(502);
-        echo json_encode(['error' => 'Failed to reach Discogs API. Make sure you have a token in api/discogs_token.txt']);
+        echo json_encode(['error' => 'Failed to reach Discogs API. Set the DISCOGS_TOKEN env var or place a token in api/discogs_token.txt']);
         return;
     }
 
@@ -1573,7 +1591,7 @@ function handleDiscogsValuateAll(PDO $pdo): void {
     $token = getDiscogsToken();
     if ($token === '' && !empty($uncached)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Discogs token required for bulk valuation. Save your token in api/discogs_token.txt']);
+        echo json_encode(['error' => 'Discogs token required for bulk valuation. Set the DISCOGS_TOKEN env var or place a token in api/discogs_token.txt']);
         return;
     }
 

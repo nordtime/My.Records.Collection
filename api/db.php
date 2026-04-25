@@ -10,7 +10,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'db.php') {
     exit('Access denied.');
 }
 
-// Load from environment variables (set via server config or .env)
+// Load from environment variables (set via IIS FastCGI config)
 define('DB_HOST',    getenv('RC_DB_HOST')    ?: '127.0.0.1');
 define('DB_NAME',    getenv('RC_DB_NAME')    ?: 'record_collection');
 define('DB_USER',    getenv('RC_DB_USER')    ?: '');
