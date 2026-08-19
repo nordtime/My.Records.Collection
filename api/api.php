@@ -50,6 +50,18 @@ try {
                 break;
             }
 
+            // Meta endpoint — distinct years and genres for filter dropdowns
+            if (isset($_GET['meta'])) {
+                $years  = $pdo->query(
+                    "SELECT DISTINCT year FROM records WHERE year IS NOT NULL AND year != '' ORDER BY CAST(year AS UNSIGNED) DESC"
+                )->fetchAll(PDO::FETCH_COLUMN);
+                $genres = $pdo->query(
+                    "SELECT DISTINCT genre FROM records WHERE genre IS NOT NULL AND genre != '' ORDER BY genre ASC"
+                )->fetchAll(PDO::FETCH_COLUMN);
+                echo json_encode(['years' => $years, 'genres' => $genres]);
+                break;
+            }
+
             // MusicBrainz lookup endpoint
             if (isset($_GET['lookup'])) {
                 handleLookup();
@@ -124,6 +136,18 @@ try {
             if (!empty($_GET['format'])) {
                 $where[] = 'format = :format';
                 $params[':format'] = $_GET['format'];
+            }
+            if (!empty($_GET['year'])) {
+                $where[] = 'year = :year';
+                $params[':year'] = $_GET['year'];
+            }
+            if (isset($_GET['year_from']) && $_GET['year_from'] !== '') {
+                $where[] = 'year IS NOT NULL AND year != \'\' AND CAST(year AS UNSIGNED) >= :year_from';
+                $params[':year_from'] = (int) $_GET['year_from'];
+            }
+            if (isset($_GET['year_to']) && $_GET['year_to'] !== '') {
+                $where[] = 'year IS NOT NULL AND year != \'\' AND CAST(year AS UNSIGNED) <= :year_to';
+                $params[':year_to'] = (int) $_GET['year_to'];
             }
 
             $sql = 'SELECT * FROM records';

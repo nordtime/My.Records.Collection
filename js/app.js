@@ -13,8 +13,10 @@
     const $count        = document.getElementById('recordsCount');
     const $search       = document.getElementById('searchInput');
     const $genre        = document.getElementById('filterGenre');
+    const $year         = document.getElementById('filterYear');
     const $format       = document.getElementById('filterFormat');
     const $sort         = document.getElementById('sortSelect');
+    const $btnSetDefault = document.getElementById('btnSetDefault');
 
     const $modalOverlay = document.getElementById('modalOverlay');
     const $modalTitle   = document.getElementById('modalTitle');
@@ -38,7 +40,6 @@
     let selectedIds    = new Set(); // multi-select tracking
     let currentRecords = [];        // cache for current view
     let debounceTimer  = null;
-    let knownGenres    = new Set();
     let csvParsedRows  = [];
 
     const $importOverlay  = document.getElementById('importOverlay');
@@ -49,9 +50,12 @@
     const $dropZone       = document.getElementById('dropZone');
     const $btnConfirmImport = document.getElementById('btnConfirmImport');
 
+    const DEFAULT_VIEW_KEY = 'recordsDefaultView';
+
     // ── Init ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
-        loadRecords();
+        loadDefaultView();
+        loadFilterOptions().then(() => loadRecords());
         bindEvents();
     });
 
@@ -63,8 +67,12 @@
             debounceTimer = setTimeout(loadRecords, 300);
         });
         $genre.addEventListener('change', loadRecords);
+        $year.addEventListener('change', loadRecords);
         $format.addEventListener('change', loadRecords);
         $sort.addEventListener('change', loadRecords);
+
+        // Set Default view
+        $btnSetDefault.addEventListener('click', saveDefaultView);
 
         // Add buttons
         document.getElementById('btnAdd').addEventListener('click', openAddModal);
@@ -181,7 +189,8 @@
     async function loadRecords() {
         const params = new URLSearchParams();
         if ($search.value.trim()) params.set('search', $search.value.trim());
-        if ($genre.value)         params.set('genre', $genre.value);
+        if ($genre.value)         params.set('genre',  $genre.value);
+        if ($year.value)          params.set('year',   $year.value);
         if ($format.value)        params.set('format', $format.value);
         params.set('sort', $sort.value);
 
@@ -189,7 +198,6 @@
             const records = await apiFetch(`${API}?${params}`);
             currentRecords = records;
             renderRecords(records);
-            updateGenreFilter(records);
         } catch {
             // error already toasted
         }
@@ -279,14 +287,56 @@
         });
     }
 
-    function updateGenreFilter(records) {
-        records.forEach(r => { if (r.genre) knownGenres.add(r.genre); });
-        const current = $genre.value;
-        const opts = ['<option value="">All Genres</option>'];
-        [...knownGenres].sort().forEach(g => {
-            opts.push(`<option value="${escHtml(g)}"${g === current ? ' selected' : ''}>${escHtml(g)}</option>`);
-        });
-        $genre.innerHTML = opts.join('');
+    // ── Default View ────────────────────────────────────────
+    function saveDefaultView() {
+        const state = {
+            genre:  $genre.value,
+            year:   $year.value,
+            format: $format.value,
+            sort:   $sort.value,
+        };
+        localStorage.setItem(DEFAULT_VIEW_KEY, JSON.stringify(state));
+        showToast('Default view saved!', 'success');
+        $btnSetDefault.classList.add('btn-default-saved');
+    }
+
+    function loadDefaultView() {
+        try {
+            const raw = localStorage.getItem(DEFAULT_VIEW_KEY);
+            if (!raw) return;
+            const state = JSON.parse(raw);
+            // genre and year selects are populated later by loadFilterOptions;
+            // store the desired values so loadFilterOptions can restore them
+            if (state.format) $format.value = state.format;
+            if (state.sort)   $sort.value   = state.sort;
+            // stash genre/year so loadFilterOptions picks them up via $genre.value / $year.value
+            if (state.genre) $genre.dataset.default = state.genre;
+            if (state.year)  $year.dataset.default  = state.year;
+            $btnSetDefault.classList.add('btn-default-saved');
+        } catch { /* ignore corrupted data */ }
+    }
+
+    // ── Populate filter dropdowns from DB ─────────────────────
+    async function loadFilterOptions() {
+        try {
+            const meta = await apiFetch(`${API}?meta=1`);
+
+            const savedGenre = $genre.dataset.default || $genre.value;
+            const genreOpts  = ['<option value="">All Genres</option>'];
+            (meta.genres || []).forEach(g => {
+                genreOpts.push(`<option value="${escHtml(g)}"${g === savedGenre ? ' selected' : ''}>${escHtml(g)}</option>`);
+            });
+            $genre.innerHTML = genreOpts.join('');
+
+            const savedYear = $year.dataset.default || $year.value;
+            const yearOpts  = ['<option value="">All Years</option>'];
+            (meta.years || []).forEach(y => {
+                yearOpts.push(`<option value="${escHtml(y)}"${String(y) === String(savedYear) ? ' selected' : ''}>${escHtml(y)}</option>`);
+            });
+            $year.innerHTML = yearOpts.join('');
+        } catch {
+            // silently ignore — dropdowns keep the placeholder option
+        }
     }
 
     // ── Add Modal ───────────────────────────────────────────
@@ -511,6 +561,7 @@
                 showToast('Record added!', 'success');
             }
             closeModal();
+            loadFilterOptions();
             loadRecords();
         } catch (err) {
             // If duplicate detected, offer to force-add
@@ -564,6 +615,7 @@
                 showToast(`${deleted} record${deleted !== 1 ? 's' : ''} deleted.`, 'success');
                 closeDeleteModal();
                 clearSelection();
+                loadFilterOptions();
                 loadRecords();
             } catch {
                 if (deleted > 0) {
@@ -581,6 +633,7 @@
             await apiFetch(`${API}?id=${deleteTargetId}`, { method: 'DELETE' });
             showToast('Record deleted.', 'success');
             closeDeleteModal();
+            loadFilterOptions();
             loadRecords();
         } catch {
             // error toasted

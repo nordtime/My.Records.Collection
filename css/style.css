@@ -227,6 +227,7 @@ body {
     flex: 1;
     min-width: 0;
     flex-wrap: wrap;
+    align-items: center;
 }
 .search-group .input {
     max-width: 260px;
@@ -235,6 +236,53 @@ body {
 .search-group .select {
     max-width: 170px;
     min-width: 120px;
+}
+
+/* ── Advanced Filters Panel ────────────────────────────────── */
+.advanced-filters {
+    border-top: 1px solid var(--border);
+    padding: 0.6rem 0;
+    background: rgba(0,0,0,0.15);
+}
+
+.advanced-filters-inner {
+    padding-top: 0;
+    padding-bottom: 0;
+    justify-content: flex-start;
+    gap: 0.75rem;
+}
+
+.advanced-filter-group {
+    flex: none;
+}
+
+.filter-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.filter-label-to {
+    margin: 0 -0.15rem;
+}
+
+.adv-year-input {
+    max-width: 110px !important;
+    min-width: 90px !important;
+}
+
+/* Advanced filter toggle button — active state */
+.btn-filter-active {
+    color: var(--vinyl-gold) !important;
+    border-color: var(--vinyl-gold) !important;
+    background: rgba(227, 179, 65, 0.1) !important;
+}
+
+/* Set Default button — saved state */
+.btn-default-saved {
+    color: var(--vinyl-gold) !important;
+    border-color: var(--vinyl-gold) !important;
 }
 
 /* ── Main Content ──────────────────────────────────────────── */

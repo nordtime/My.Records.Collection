@@ -32,6 +32,9 @@
                 <select id="filterGenre" class="input select">
                     <option value="">All Genres</option>
                 </select>
+                <select id="filterYear" class="input select">
+                    <option value="">All Years</option>
+                </select>
                 <select id="filterFormat" class="input select">
                     <option value="">All Formats</option>
                     <option value="Vinyl">Vinyl</option>
@@ -48,6 +51,7 @@
                 </select>
             </div>
             <div class="btn-group">
+                <button class="btn btn-ghost" id="btnSetDefault" title="Save current filters &amp; sort as default view">&#9733; Set Default</button>
                 <button class="btn btn-ghost" id="btnExportCsv" title="Export to CSV">&#128228; Export CSV</button>
                 <button class="btn btn-ghost" id="btnImportCsv" title="Import from CSV">&#128229; Import CSV</button>
                 <button class="btn btn-primary" id="btnAdd">&#43; Add Record</button>
