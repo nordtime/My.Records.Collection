@@ -148,6 +148,50 @@
 
         // Tracklist modal
         document.getElementById('btnCloseTracklist').addEventListener('click', () => document.getElementById('tracklistOverlay').classList.add('hidden'));
+
+        // ── Enhanced Search & Filters ───────────────────────
+        // Search scope selector
+        const $searchScope = document.getElementById('searchScope');
+        if ($searchScope) {
+            $searchScope.addEventListener('change', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(loadRecords, 300);
+            });
+        }
+
+        // Advanced filters toggle
+        const $btnAdvFilters = document.getElementById('btnAdvancedFilters');
+        const $advFiltersPanel = document.getElementById('advancedFiltersPanel');
+        if ($btnAdvFilters && $advFiltersPanel) {
+            $btnAdvFilters.addEventListener('click', () => {
+                $advFiltersPanel.classList.toggle('hidden');
+                $btnAdvFilters.classList.toggle('btn-filter-active');
+            });
+        }
+
+        // Advanced filter inputs
+        const advFilterIds = ['filterDateFrom', 'filterDateTo', 'filterCondition', 'filterHasCover'];
+        advFilterIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const eventType = el.type === 'checkbox' ? 'change' : 'change';
+                el.addEventListener(eventType, () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(loadRecords, 300);
+                });
+            }
+        });
+
+        // Clear filters button
+        const $btnClearFilters = document.getElementById('btnClearFilters');
+        if ($btnClearFilters) {
+            $btnClearFilters.addEventListener('click', () => {
+                if (typeof clearAdvancedFilters === 'function') {
+                    clearAdvancedFilters();
+                }
+                loadRecords();
+            });
+        }
         document.getElementById('tracklistOverlay').addEventListener('click', e => {
             if (e.target === document.getElementById('tracklistOverlay')) document.getElementById('tracklistOverlay').classList.add('hidden');
         });
@@ -185,23 +229,56 @@
         }
     }
 
-    // ── Load records ────────────────────────────────────────
+    // ── Load records with enhanced search & filters ────────
     async function loadRecords() {
-        const params = new URLSearchParams();
-        if ($search.value.trim()) params.set('search', $search.value.trim());
-        if ($genre.value)         params.set('genre',  $genre.value);
-        if ($year.value)          params.set('year',   $year.value);
-        if ($format.value)        params.set('format', $format.value);
-        params.set('sort', $sort.value);
-
         try {
+            const params = new URLSearchParams();
+            
+            // Server-side filters for genre, year, format
+            if ($genre.value) params.set('genre', $genre.value);
+            if ($year.value) params.set('year', $year.value);
+            if ($format.value) params.set('format', $format.value);
+            params.set('sort', $sort.value);
+
+            // Fetch all records from API
             const records = await apiFetch(`${API}?${params}`);
-            currentRecords = records;
-            renderRecords(records);
+            
+            // Expose globally for Priority 2 modules
+            window.records = records;
+            
+            // Initialize fuzzy search with fetched records
+            if (typeof initEnhancedSearch === 'function') {
+                initEnhancedSearch(records);
+            }
+
+            // Apply client-side fuzzy search
+            let filteredRecords = records;
+            
+            const searchQuery = $search.value.trim();
+            const $searchScope = document.getElementById('searchScope');
+            const searchScope = $searchScope ? $searchScope.value : 'all';
+            
+            if (searchQuery && typeof performFuzzySearch === 'function') {
+                filteredRecords = performFuzzySearch(searchQuery, searchScope);
+            }
+
+            // Apply advanced filters
+            if (typeof applyAdvancedFilters === 'function') {
+                filteredRecords = applyAdvancedFilters(filteredRecords);
+            }
+
+            // Update current records and render
+            currentRecords = filteredRecords;
+            currentRecords = filteredRecords;
+            renderRecords(filteredRecords);
+
         } catch {
             // error already toasted
         }
     }
+
+    // Expose for enhanced search module
+    window.triggerRecordReload = loadRecords;
 
     function renderRecords(records) {
         if (!records.length) {
@@ -225,7 +302,7 @@
             <div class="record-card${isSelected ? ' selected' : ''}" data-id="${r.id}">
                 <div class="card-cover">
                     <input type="checkbox" class="card-select" data-id="${r.id}" ${isSelected ? 'checked' : ''} title="Select for bulk actions">
-                    <img src="${coverSrc}" alt="${escHtml(r.album)}" loading="lazy" onerror="this.parentElement.innerHTML='<input type=checkbox class=card-select data-id=${r.id} ${isSelected ? 'checked' : ''} title=Select><span class=\'cover-placeholder\'>&#127926;</span>'">
+                    <img class="record-img" src="${coverSrc}" alt="${escHtml(r.album)}" loading="lazy" data-record-id="${r.id}" data-is-selected="${isSelected}">
                 </div>
                 <div class="card-body">
                     <div class="card-artist">${escHtml(r.artist)}</div>
@@ -239,7 +316,7 @@
                     ${r.notes ? `<div class="card-notes">${escHtml(r.notes)}</div>` : ''}
                 </div>
                 <div class="card-actions">
-                    <a class="btn btn-ghost btn-sm btn-spotify" href="https://open.spotify.com/search/${encodeURIComponent(r.artist + ' ' + r.album)}" target="_blank" rel="noopener noreferrer" title="Find on Spotify" onclick="event.stopPropagation()"><svg class="spotify-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></a>
+                    <a class="btn btn-ghost btn-sm btn-spotify" href="https://open.spotify.com/search/${encodeURIComponent(r.artist + ' ' + r.album)}" target="_blank" rel="noopener noreferrer" title="Find on Spotify"><svg class="spotify-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></a>
                     <button class="btn btn-ghost btn-sm btn-value" data-id="${r.id}" title="Discogs Value">&#128176; Value</button>
                     <button class="btn btn-ghost btn-sm btn-edit" data-id="${r.id}" title="Edit">&#9998; Edit</button>
                     <button class="btn btn-ghost btn-sm btn-delete" data-id="${r.id}" title="Delete">&#128465; Delete</button>
@@ -256,6 +333,20 @@
         );
         $grid.querySelectorAll('.btn-value').forEach(btn =>
             btn.addEventListener('click', e => { e.stopPropagation(); openDiscogsValue(parseInt(btn.dataset.id), records); })
+        );
+
+        // Bind image error handler (CSP-compliant)
+        $grid.querySelectorAll('.record-img').forEach(img => {
+            img.addEventListener('error', function() {
+                const recordId = this.dataset.recordId;
+                const isSelected = this.dataset.isSelected === 'true';
+                this.parentElement.innerHTML = `<input type="checkbox" class="card-select" data-id="${recordId}" ${isSelected ? 'checked' : ''} title="Select for bulk actions"><span class="cover-placeholder">&#127926;</span>`;
+            });
+        });
+
+        // Bind Spotify link click handler (CSP-compliant)
+        $grid.querySelectorAll('.btn-spotify').forEach(link =>
+            link.addEventListener('click', e => e.stopPropagation())
         );
 
         // Bind checkbox select
@@ -276,13 +367,20 @@
             });
         });
 
-        // Bind card click → open tracklist
+        // Bind card click → open detail view (Priority 2.1)
         $grid.querySelectorAll('.record-card').forEach(card => {
             card.style.cursor = 'pointer';
             card.addEventListener('click', (e) => {
                 if (e.target.closest('a')) return;
                 const r = records.find(rec => rec.id == card.dataset.id);
-                if (r) openTracklist(r.artist, r.album);
+                if (r) {
+                    // Use new detail view if available, fallback to tracklist
+                    if (window.RecordDetail) {
+                        window.RecordDetail.open(r);
+                    } else {
+                        openTracklist(r.artist, r.album);
+                    }
+                }
             });
         });
     }
@@ -420,7 +518,7 @@
                 <div class="lookup-card" data-idx="${i}">
                     <div class="lookup-cover">
                         ${r.cover_url
-                            ? `<img src="${escHtml(r.cover_url)}" alt="cover" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`
+                            ? `<img class="lookup-cover-img" src="${escHtml(r.cover_url)}" alt="cover" loading="lazy">`
                             : ''}
                         <span class="cover-placeholder" ${r.cover_url ? 'style="display:none"' : ''}>&#127926;</span>
                     </div>
@@ -453,6 +551,16 @@
                     $results.classList.add('hidden');
                     $status.textContent = 'Fields filled ✓';
                     showToast(`Record info filled from ${r.source || 'lookup'}!`, 'success');
+                });
+            });
+
+            // Bind lookup cover image error handler (CSP-compliant)
+            $results.querySelectorAll('.lookup-cover-img').forEach(img => {
+                img.addEventListener('error', function() {
+                    this.style.display = 'none';
+                    if (this.nextElementSibling) {
+                        this.nextElementSibling.style.display = 'block';
+                    }
                 });
             });
 
@@ -489,7 +597,7 @@
                 : `${COVER_API}?artist=${encodeURIComponent(data.artist)}&album=${encodeURIComponent(data.album)}`;
 
             let html = '<div class="tracklist-header">';
-            html += `<img class="tracklist-cover" src="${coverSrc}" alt="cover" onerror="this.style.display='none'">`;
+            html += `<img class="tracklist-cover-img" src="${coverSrc}" alt="cover">`;
             html += `<div class="tracklist-info">`;
             html += `<div class="tracklist-artist">${escHtml(data.artist)}</div>`;
             html += `<div class="tracklist-album">${escHtml(data.album)}</div>`;
@@ -521,6 +629,14 @@
             html += '</tbody></table></div>';
 
             $body.innerHTML = html;
+
+            // Bind tracklist cover image error handler (CSP-compliant)
+            const tracklistCoverImg = $body.querySelector('.tracklist-cover-img');
+            if (tracklistCoverImg) {
+                tracklistCoverImg.addEventListener('error', function() {
+                    this.style.display = 'none';
+                });
+            }
         } catch {
             $body.innerHTML = '<p class="loading">Failed to load track list.</p>';
         }
@@ -1078,5 +1194,12 @@
         d.textContent = str;
         return d.innerHTML;
     }
+
+    // ── Expose functions for Priority 2 modules ────────────
+    window.openModal = openEditModal;
+    window.deleteRecord = (id) => {
+        const records = window.records || [];
+        openDeleteModal(id, records);
+    };
 
 })();

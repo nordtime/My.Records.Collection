@@ -74,6 +74,18 @@ try {
                 break;
             }
 
+            // Wishlist endpoint — GET ?wishlist=1
+            if (isset($_GET['wishlist'])) {
+                handleGetWishlist($pdo);
+                break;
+            }
+
+            // Listening sessions endpoint — GET ?sessions=1&filter=all|week|month|year
+            if (isset($_GET['sessions'])) {
+                handleGetSessions($pdo);
+                break;
+            }
+
             // Discogs valuation endpoint
             if (isset($_GET['discogs'])) {
                 if (!checkDiscogsRateLimit()) {
@@ -194,6 +206,18 @@ try {
             if (!$data) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid JSON body.']);
+                break;
+            }
+
+            // Log a listening session — POST {play:1, record_id}
+            if (!empty($data['play'])) {
+                handleLogPlay($pdo, $data);
+                break;
+            }
+
+            // Wishlist actions — POST {wish:'add'|'update'|'purchase', ...}
+            if (isset($data['wish'])) {
+                handleWishAction($pdo, $data);
                 break;
             }
 
@@ -327,6 +351,12 @@ try {
 
         // ── DELETE ──────────────────────────────────────────
         case 'DELETE':
+            // Delete wishlist item — DELETE ?wish_id=
+            if (isset($_GET['wish_id'])) {
+                handleDeleteWish($pdo, (int) $_GET['wish_id']);
+                break;
+            }
+
             if (!isset($_GET['id'])) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Missing record id.']);
@@ -602,6 +632,300 @@ function ensureTrackCacheTable(PDO $pdo): void {
             INDEX idx_cache_key (cache_key)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ');
+}
+
+/**
+ * Auto-create the listening_sessions table if it doesn't exist.
+ */
+function ensureSessionsTable(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $pdo->exec('
+        CREATE TABLE IF NOT EXISTS listening_sessions (
+            id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            record_id INT UNSIGNED NOT NULL,
+            played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_record (record_id),
+            INDEX idx_played (played_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ');
+}
+
+/**
+ * Auto-create the wishlist table if it doesn't exist.
+ */
+function ensureWishlistTable(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $pdo->exec('
+        CREATE TABLE IF NOT EXISTS wishlist (
+            id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            artist       VARCHAR(255) NOT NULL,
+            album        VARCHAR(255) NOT NULL,
+            format       VARCHAR(50)  DEFAULT \'Vinyl\',
+            target_price DECIMAL(10,2),
+            discogs_url  VARCHAR(500),
+            notes        TEXT,
+            added_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ');
+}
+
+/**
+ * Log a listening session for a record.
+ *
+ * POST { "play": 1, "record_id": 123 }
+ */
+function handleLogPlay(PDO $pdo, array $data): void {
+    $recordId = (int) ($data['record_id'] ?? 0);
+    if ($recordId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'A valid record_id is required.']);
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM records WHERE id = :id');
+    $stmt->execute([':id' => $recordId]);
+    if (!$stmt->fetch()) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Record not found.']);
+        return;
+    }
+
+    ensureSessionsTable($pdo);
+    $pdo->prepare('INSERT INTO listening_sessions (record_id) VALUES (:rid)')
+        ->execute([':rid' => $recordId]);
+
+    // Increment play_count if the column exists (added by priority2 migration)
+    try {
+        $pdo->prepare('UPDATE records SET play_count = COALESCE(play_count, 0) + 1 WHERE id = :id')
+            ->execute([':id' => $recordId]);
+    } catch (\Throwable $e) {
+        // play_count column may not exist yet — non-critical
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Listening session logged.']);
+}
+
+/**
+ * Return all listening sessions (joined with record info) plus summary stats.
+ *
+ * GET ?sessions=1&filter=all|week|month|year
+ */
+function handleGetSessions(PDO $pdo): void {
+    ensureSessionsTable($pdo);
+
+    $filter = $_GET['filter'] ?? 'all';
+    $since = null;
+    switch ($filter) {
+        case 'week':  $since = date('Y-m-d H:i:s', strtotime('-7 days'));  break;
+        case 'month': $since = date('Y-m-d H:i:s', strtotime('-1 month')); break;
+        case 'year':  $since = date('Y-m-d H:i:s', strtotime('-1 year'));  break;
+    }
+
+    $sql = '
+        SELECT s.id, s.record_id, s.played_at,
+               r.artist, r.album, r.format
+        FROM listening_sessions s
+        JOIN records r ON r.id = s.record_id
+    ';
+    $where = [];
+    $params = [];
+    if ($since !== null) {
+        $where[] = 's.played_at >= :since';
+        $params[':since'] = $since;
+    }
+    if (isset($_GET['record_id']) && $_GET['record_id'] !== '') {
+        $where[] = 's.record_id = :record_id';
+        $params[':record_id'] = (int) $_GET['record_id'];
+    }
+    if ($where) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+    $sql .= ' ORDER BY s.played_at DESC';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $sessions = $stmt->fetchAll();
+
+    echo json_encode([
+        'success'  => true,
+        'sessions' => $sessions,
+        'stats'    => computeSessionStats($pdo),
+    ]);
+}
+
+/**
+ * Compute summary stats across all listening sessions.
+ */
+function computeSessionStats(PDO $pdo): array {
+    $totalPlays = (int) $pdo->query('SELECT COUNT(*) FROM listening_sessions')->fetchColumn();
+
+    $lastPlayed = $pdo->query('SELECT MAX(played_at) FROM listening_sessions')->fetchColumn() ?: null;
+
+    // Most played record
+    $mostPlayed = null;
+    $row = $pdo->query('
+        SELECT r.artist, r.album, COUNT(*) AS plays
+        FROM listening_sessions s
+        JOIN records r ON r.id = s.record_id
+        GROUP BY s.record_id
+        ORDER BY plays DESC
+        LIMIT 1
+    ')->fetch();
+    if ($row) {
+        $mostPlayed = $row['artist'] . ' – ' . $row['album'];
+    }
+
+    // Current streak: consecutive days (ending today or yesterday) with at least one play
+    $days = $pdo->query('
+        SELECT DISTINCT DATE(played_at) AS d
+        FROM listening_sessions
+        ORDER BY d DESC
+    ')->fetchAll(PDO::FETCH_COLUMN);
+
+    $streak = 0;
+    if ($days) {
+        $today = new DateTime('today');
+        $expected = clone $today;
+        // Allow the streak to start today or yesterday
+        if ($days[0] !== $today->format('Y-m-d')) {
+            $expected->modify('-1 day');
+        }
+        foreach ($days as $d) {
+            if ($d === $expected->format('Y-m-d')) {
+                $streak++;
+                $expected->modify('-1 day');
+            } else {
+                break;
+            }
+        }
+    }
+
+    return [
+        'total_plays'        => $totalPlays,
+        'current_streak'     => $streak,
+        'most_played_record' => $mostPlayed,
+        'last_played_date'   => $lastPlayed,
+    ];
+}
+
+/**
+ * Return all wishlist items.
+ *
+ * GET ?wishlist=1
+ */
+function handleGetWishlist(PDO $pdo): void {
+    ensureWishlistTable($pdo);
+    $rows = $pdo->query('SELECT * FROM wishlist ORDER BY added_at DESC')->fetchAll();
+    echo json_encode(['success' => true, 'wishlist' => $rows]);
+}
+
+/**
+ * Add, update, or purchase (move to collection) a wishlist item.
+ *
+ * POST { "wish": "add"|"update"|"purchase", ... }
+ */
+function handleWishAction(PDO $pdo, array $data): void {
+    ensureWishlistTable($pdo);
+    $action = $data['wish'];
+
+    if ($action === 'add' || $action === 'update') {
+        $artist = trim($data['artist'] ?? '');
+        $album  = trim($data['album'] ?? '');
+        if ($artist === '' || $album === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Artist and album are required.']);
+            return;
+        }
+
+        $format      = trim($data['format'] ?? 'Vinyl') ?: 'Vinyl';
+        $targetPrice = (isset($data['target_price']) && $data['target_price'] !== '' && $data['target_price'] !== null)
+            ? (float) $data['target_price'] : null;
+        $discogsUrl  = trim($data['discogs_url'] ?? '') ?: null;
+        $notes       = trim($data['notes'] ?? '') ?: null;
+
+        if ($action === 'update') {
+            $wishId = (int) ($data['wish_id'] ?? 0);
+            if ($wishId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'A valid wish_id is required.']);
+                return;
+            }
+            $stmt = $pdo->prepare('
+                UPDATE wishlist SET
+                    artist = :artist, album = :album, format = :format,
+                    target_price = :price, discogs_url = :url, notes = :notes
+                WHERE id = :id
+            ');
+            $stmt->execute([
+                ':artist' => $artist, ':album' => $album, ':format' => $format,
+                ':price' => $targetPrice, ':url' => $discogsUrl, ':notes' => $notes,
+                ':id' => $wishId,
+            ]);
+            echo json_encode(['success' => true, 'message' => 'Wishlist item updated.']);
+        } else {
+            $stmt = $pdo->prepare('
+                INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes)
+                VALUES (:artist, :album, :format, :price, :url, :notes)
+            ');
+            $stmt->execute([
+                ':artist' => $artist, ':album' => $album, ':format' => $format,
+                ':price' => $targetPrice, ':url' => $discogsUrl, ':notes' => $notes,
+            ]);
+            echo json_encode(['success' => true, 'id' => (int) $pdo->lastInsertId(), 'message' => 'Added to wishlist.']);
+        }
+        return;
+    }
+
+    if ($action === 'purchase') {
+        $wishId = (int) ($data['wish_id'] ?? 0);
+        $stmt = $pdo->prepare('SELECT * FROM wishlist WHERE id = :id');
+        $stmt->execute([':id' => $wishId]);
+        $wish = $stmt->fetch();
+        if (!$wish) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Wishlist item not found.']);
+            return;
+        }
+
+        $pdo->prepare('
+            INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url)
+            VALUES (:artist, :album, NULL, \'\', :format, \'\', :notes, \'\')
+        ')->execute([
+            ':artist' => $wish['artist'],
+            ':album'  => $wish['album'],
+            ':format' => $wish['format'] ?: 'Vinyl',
+            ':notes'  => $wish['notes'] ?? '',
+        ]);
+
+        $pdo->prepare('DELETE FROM wishlist WHERE id = :id')->execute([':id' => $wishId]);
+        echo json_encode(['success' => true, 'message' => 'Moved to collection.']);
+        return;
+    }
+
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Unknown wishlist action.']);
+}
+
+/**
+ * Delete a wishlist item.
+ *
+ * DELETE ?wish_id=123
+ */
+function handleDeleteWish(PDO $pdo, int $wishId): void {
+    ensureWishlistTable($pdo);
+    if ($wishId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'A valid wish_id is required.']);
+        return;
+    }
+    $pdo->prepare('DELETE FROM wishlist WHERE id = :id')->execute([':id' => $wishId]);
+    echo json_encode(['success' => true, 'message' => 'Removed from wishlist.']);
 }
 
 /**
