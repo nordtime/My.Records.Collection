@@ -42,6 +42,9 @@
     let debounceTimer  = null;
     let csvParsedRows  = [];
     let activeTag      = null;       // active tag/shelf filter
+    let allTags        = [];         // distinct tags across the collection (for the card tag picker)
+    // Built-in shelf suggestions always offered in the card tag picker
+    const DEFAULT_TAGS = ['Favorites', 'To Listen', 'On Rotation', 'Classics', 'Rare', 'Signed', 'Loaned Out', 'For Sale', 'Chill', 'Party'];
 
     const $importOverlay  = document.getElementById('importOverlay');
     const $importPreview  = document.getElementById('importPreview');
@@ -251,6 +254,9 @@
             
             // Expose globally for Priority 2 modules
             window.records = records;
+
+            // Refresh the distinct-tags list used by the per-card tag picker
+            loadAllTags();
             
             // Initialize fuzzy search with fetched records
             if (typeof initEnhancedSearch === 'function') {
@@ -322,7 +328,13 @@
                         ${r.play_count > 0 ? `<span class="badge badge-plays" title="Times played">📀 ${r.play_count}</span>` : ''}
                         ${r.discogs_value ? `<span class="badge badge-value" title="Discogs value">$${parseFloat(r.discogs_value).toFixed(0)}</span>` : ''}
                     </div>
-                    ${r.tags ? `<div class="card-tags">${r.tags.split(',').filter(t => t.trim()).map(t => `<span class="tag-chip" data-tag="${escHtml(t.trim())}">${escHtml(t.trim())}</span>`).join('')}</div>` : ''}
+                    <div class="card-tags" data-id="${r.id}">
+                        <span class="card-tags-chips">${tagChipsHtml(r)}</span>
+                        <div class="tag-dropdown">
+                            <button class="tag-dropdown-btn" data-id="${r.id}" aria-haspopup="true" aria-expanded="false" title="Add or remove tags">🏷️<span class="tag-caret">▾</span></button>
+                            <div class="tag-dropdown-menu hidden" role="menu" aria-label="Assign tags"></div>
+                        </div>
+                    </div>
                     ${r.notes ? `<div class="card-notes">${escHtml(r.notes)}</div>` : ''}
                 </div>
                 <div class="card-actions">
@@ -348,8 +360,20 @@
         $grid.querySelectorAll('.btn-played').forEach(btn =>
             btn.addEventListener('click', e => { e.stopPropagation(); markPlayed(parseInt(btn.dataset.id), records); })
         );
-        $grid.querySelectorAll('.tag-chip').forEach(chip =>
-            chip.addEventListener('click', e => { e.stopPropagation(); setActiveTag(chip.dataset.tag); })
+        bindTagChips($grid);
+        $grid.querySelectorAll('.tag-dropdown-btn').forEach(btn =>
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const menu = btn.parentElement.querySelector('.tag-dropdown-menu');
+                const isOpen = !menu.classList.contains('hidden');
+                closeAllTagMenus();
+                if (isOpen) return;
+                const record = records.find(r => r.id == btn.dataset.id);
+                if (!record) return;
+                buildTagMenu(record, menu);
+                menu.classList.remove('hidden');
+                btn.setAttribute('aria-expanded', 'true');
+            })
         );
 
         // Bind image error handler (CSP-compliant)
@@ -401,6 +425,107 @@
             });
         });
     }
+
+    // ── Per-card tag picker ─────────────────────────────────
+    function tagChipsHtml(r) {
+        if (!r.tags) return '';
+        return r.tags.split(',').filter(t => t.trim())
+            .map(t => `<span class="tag-chip" data-tag="${escHtml(t.trim())}">${escHtml(t.trim())}</span>`)
+            .join('');
+    }
+
+    function bindTagChips(scope) {
+        (scope || $grid).querySelectorAll('.tag-chip').forEach(chip => {
+            if (chip.dataset.bound) return;
+            chip.dataset.bound = '1';
+            chip.addEventListener('click', e => { e.stopPropagation(); setActiveTag(chip.dataset.tag); });
+        });
+    }
+
+    async function loadAllTags() {
+        try {
+            const res = await fetch(`${API}?tags_list=1`, { credentials: 'same-origin' });
+            const data = await res.json();
+            if (data && data.success) allTags = (data.tags || []).map(t => t.tag);
+        } catch { /* ignore — picker just shows the empty state */ }
+    }
+
+    function closeAllTagMenus() {
+        $grid.querySelectorAll('.tag-dropdown-menu').forEach(m => m.classList.add('hidden'));
+        $grid.querySelectorAll('.tag-dropdown-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+    }
+
+    function buildTagMenu(record, menu) {
+        const currentLower = (record.tags || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        // Merge collection tags with the built-in shelf suggestions
+        const options = [...allTags];
+        DEFAULT_TAGS.forEach(t => {
+            if (!options.some(o => o.toLowerCase() === t.toLowerCase())) options.push(t);
+        });
+        options.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        const list = options.map(name => {
+            const checked = currentLower.includes(name.toLowerCase()) ? 'checked' : '';
+            return `<label class="tag-menu-item"><input type="checkbox" data-tag="${escHtml(name)}" ${checked}><span>${escHtml(name)}</span></label>`;
+        }).join('');
+        menu.innerHTML = `<div class="tag-menu-list">${list}</div>`
+            + `<div class="tag-menu-add">`
+            + `<input type="text" class="tag-new-input" placeholder="New tag…" maxlength="40" aria-label="New tag">`
+            + `<button type="button" class="btn btn-sm btn-primary tag-new-btn">Add</button></div>`;
+        menu.querySelectorAll('input[type="checkbox"]').forEach(cb =>
+            cb.addEventListener('change', e => {
+                e.stopPropagation();
+                toggleRecordTag(record, cb.dataset.tag, cb.checked);
+            })
+        );
+        const input = menu.querySelector('.tag-new-input');
+        const addBtn = menu.querySelector('.tag-new-btn');
+        const add = () => addNewTag(record, menu, input.value);
+        addBtn.addEventListener('click', e => { e.stopPropagation(); add(); });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); add(); }
+        });
+        menu.onclick = e => e.stopPropagation();
+    }
+
+    async function addNewTag(record, menu, raw) {
+        const tag = (raw || '').trim();
+        if (!tag) return;
+        const exists = (record.tags || '').split(',').some(t => t.trim().toLowerCase() === tag.toLowerCase());
+        if (!exists) await toggleRecordTag(record, tag, true);
+        buildTagMenu(record, menu);
+        const input = menu.querySelector('.tag-new-input');
+        if (input) input.focus();
+    }
+
+    async function toggleRecordTag(record, tag, add) {
+        let tags = (record.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+        const has = tags.some(t => t.toLowerCase() === tag.toLowerCase());
+        if (add && !has) tags.push(tag);
+        else if (!add && has) tags = tags.filter(t => t.toLowerCase() !== tag.toLowerCase());
+        try {
+            const res = await fetch(API, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ set_tags: 1, record_id: record.id, tags: tags.join(',') }),
+            });
+            const data = await res.json();
+            if (data && data.success) {
+                record.tags = (data.tags || []).join(',');
+                // Keep the collection-wide tag list current so new tags appear everywhere
+                (data.tags || []).forEach(name => {
+                    if (!allTags.some(t => t.toLowerCase() === name.toLowerCase())) allTags.push(name);
+                });
+                allTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+                const card = $grid.querySelector(`.record-card[data-id="${record.id}"]`);
+                const chipsEl = card && card.querySelector('.card-tags-chips');
+                if (chipsEl) { chipsEl.innerHTML = tagChipsHtml(record); bindTagChips(card); }
+            } else {
+                showToast((data && data.message) || 'Could not update tags', 'error');
+            }
+        } catch { showToast('Network error while saving tags', 'error'); }
+    }
+
+    // Close any open tag menu when clicking elsewhere
+    document.addEventListener('click', () => closeAllTagMenus());
 
     // ── Tag / shelf filtering ───────────────────────────────
     function setActiveTag(tag) {

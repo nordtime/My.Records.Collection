@@ -657,6 +657,92 @@ body {
     color: #fff;
     border-color: var(--accent);
 }
+/* Per-card tag picker */
+.card-tags-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+.tag-dropdown {
+    position: relative;
+    display: inline-flex;
+}
+.tag-dropdown-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    border-radius: 999px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px dashed var(--border);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.tag-dropdown-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+.tag-caret { font-size: 0.6rem; }
+.tag-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 30;
+    min-width: 180px;
+    padding: 0.25rem;
+    background: var(--bg-modal);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.tag-menu-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+.tag-menu-add {
+    display: flex;
+    gap: 0.35rem;
+    padding: 0.4rem 0.25rem 0.15rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--border);
+}
+.tag-new-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 0.35rem;
+}
+.tag-new-input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.tag-new-btn { white-space: nowrap; }
+.tag-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    border-radius: 0.35rem;
+    cursor: pointer;
+}
+.tag-menu-item:hover { background: var(--bg-card-hover); }
+.tag-menu-item input { accent-color: var(--accent); cursor: pointer; }
+.tag-menu-empty {
+    padding: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
 .active-tag-filter {
     flex: 1;
     display: flex;

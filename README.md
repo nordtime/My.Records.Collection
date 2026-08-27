@@ -13,6 +13,7 @@ A personal music collection manager for Vinyl, CD, Cassette, and Digital records
 - **CRUD** — add, edit, and delete records with a modal form
 - **Multi-select delete** — bulk remove records from the grid
 - **Ratings, tags & wishlist** — rate records, tag them, and track wanted releases
+- **Inline tag picker** — assign tags/shelves right from a record card via a dropdown: pick a built-in shelf suggestion, an existing collection tag, or type a new one (saved instantly)
 - **Listening sessions** — log plays and see listening history
 - **Cover art** — fetched automatically from MusicBrainz / Cover Art Archive and cached locally in `/covers/`
 - **Track lookup** — pull track listings from MusicBrainz
