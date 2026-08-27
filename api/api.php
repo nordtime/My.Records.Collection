@@ -40,6 +40,7 @@ if ($method === 'OPTIONS') {
 
 try {
     $pdo = get_db();
+    ensureRecordsColumns($pdo);
 
     switch ($method) {
         // ── READ ────────────────────────────────────────────
@@ -83,6 +84,18 @@ try {
             // Listening sessions endpoint — GET ?sessions=1&filter=all|week|month|year
             if (isset($_GET['sessions'])) {
                 handleGetSessions($pdo);
+                break;
+            }
+
+            // Full JSON backup — GET ?backup=1
+            if (isset($_GET['backup'])) {
+                handleBackup($pdo);
+                break;
+            }
+
+            // Distinct tags for the filter UI — GET ?tags_list=1
+            if (isset($_GET['tags_list'])) {
+                handleTagsList($pdo);
                 break;
             }
 
@@ -149,6 +162,10 @@ try {
                 $where[] = 'format = :format';
                 $params[':format'] = $_GET['format'];
             }
+            if (!empty($_GET['tag'])) {
+                $where[] = 'FIND_IN_SET(:tag, tags)';
+                $params[':tag'] = trim($_GET['tag']);
+            }
             if (!empty($_GET['year'])) {
                 $where[] = 'year = :year';
                 $params[':year'] = $_GET['year'];
@@ -196,6 +213,12 @@ try {
                 break;
             }
 
+            // JSON restore — POST ?restore=1
+            if (isset($_GET['restore'])) {
+                handleRestore($pdo);
+                break;
+            }
+
             // Save lyrics — POST ?lyrics=1
             if (isset($_GET['lyrics'])) {
                 handleSaveLyrics($pdo);
@@ -212,6 +235,18 @@ try {
             // Log a listening session — POST {play:1, record_id}
             if (!empty($data['play'])) {
                 handleLogPlay($pdo, $data);
+                break;
+            }
+
+            // Set a star rating — POST {rate:1, record_id, rating}
+            if (!empty($data['rate'])) {
+                handleSetRating($pdo, $data);
+                break;
+            }
+
+            // Set tags for a record — POST {set_tags:1, record_id, tags:"a,b,c"}
+            if (!empty($data['set_tags'])) {
+                handleSetTags($pdo, $data);
                 break;
             }
 
@@ -245,8 +280,8 @@ try {
             $coverUrl = cacheCoverUrl($data['cover_url'] ?? '');
 
             $stmt = $pdo->prepare('
-                INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url)
-                VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url)
+                INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, tags)
+                VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url, :tags)
             ');
             $stmt->execute([
                 ':artist'          => trim($data['artist']),
@@ -257,6 +292,7 @@ try {
                 ':condition_grade' => trim($data['condition_grade'] ?? ''),
                 ':notes'           => trim($data['notes'] ?? ''),
                 ':cover_url'       => $coverUrl,
+                ':tags'            => normalizeTags($data['tags'] ?? ''),
             ]);
 
             $newId = (int) $pdo->lastInsertId();
@@ -303,7 +339,8 @@ try {
                     format          = :format,
                     condition_grade = :condition_grade,
                     notes           = :notes,
-                    cover_url       = :cover_url
+                    cover_url       = :cover_url,
+                    tags            = :tags
                 WHERE id = :id
             ');
             $stmt->execute([
@@ -315,6 +352,7 @@ try {
                 ':condition_grade' => trim($data['condition_grade'] ?? ''),
                 ':notes'           => trim($data['notes'] ?? ''),
                 ':cover_url'       => $coverUrl,
+                ':tags'            => normalizeTags($data['tags'] ?? ''),
                 ':id'              => $id,
             ]);
 
@@ -635,6 +673,146 @@ function ensureTrackCacheTable(PDO $pdo): void {
 }
 
 /**
+ * Auto-add Priority 2 columns to the records table if they are missing,
+ * so features work even when priority2_migration.sql was never run.
+ */
+function ensureRecordsColumns(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    try {
+        $cols = $pdo->query(
+            "SELECT LOWER(COLUMN_NAME) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'records'"
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        $add = [];
+        if (!in_array('rating', $cols, true))        $add[] = 'ADD COLUMN rating TINYINT UNSIGNED DEFAULT 0';
+        if (!in_array('discogs_value', $cols, true))  $add[] = 'ADD COLUMN discogs_value DECIMAL(10,2) NULL';
+        if (!in_array('tags', $cols, true))           $add[] = "ADD COLUMN tags VARCHAR(500) DEFAULT ''";
+        $addPlayCount = !in_array('play_count', $cols, true);
+        if ($addPlayCount) $add[] = 'ADD COLUMN play_count INT UNSIGNED DEFAULT 0';
+
+        if ($add) {
+            $pdo->exec('ALTER TABLE records ' . implode(', ', $add));
+
+            // Backfill play_count from existing listening sessions
+            if ($addPlayCount) {
+                ensureSessionsTable($pdo);
+                $pdo->exec('
+                    UPDATE records r
+                    LEFT JOIN (
+                        SELECT record_id, COUNT(*) AS c
+                        FROM listening_sessions GROUP BY record_id
+                    ) s ON s.record_id = r.id
+                    SET r.play_count = COALESCE(s.c, 0)
+                ');
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('[Records API] ensureRecordsColumns failed: ' . $e->getMessage());
+    }
+
+    // Backfill discogs_value from any prior Discogs valuations (idempotent — only fills NULLs)
+    try {
+        $pdo->exec('
+            UPDATE records r
+            JOIN discogs_cache d ON d.record_id = r.id
+            SET r.discogs_value = COALESCE(d.median_price, d.lowest_price)
+            WHERE r.discogs_value IS NULL
+              AND COALESCE(d.median_price, d.lowest_price) IS NOT NULL
+        ');
+    } catch (\Throwable $e) {
+        // discogs_cache may not exist yet — non-critical
+    }
+}
+
+/**
+ * Set a star rating (0-5) for a record.
+ *
+ * POST { "rate": 1, "record_id": 123, "rating": 4 }
+ */
+function handleSetRating(PDO $pdo, array $data): void {
+    $recordId = (int) ($data['record_id'] ?? 0);
+    $rating   = (int) ($data['rating'] ?? 0);
+    if ($recordId <= 0 || $rating < 0 || $rating > 5) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid record_id or rating (0-5).']);
+        return;
+    }
+    ensureRecordsColumns($pdo);
+    $pdo->prepare('UPDATE records SET rating = :r WHERE id = :id')
+        ->execute([':r' => $rating, ':id' => $recordId]);
+    echo json_encode(['success' => true, 'message' => 'Rating saved.']);
+}
+
+/**
+ * Normalize a tags value (string or array) into a clean comma-separated string.
+ * Each tag is trimmed; empties and duplicates removed; commas stripped from tags.
+ */
+function normalizeTags($tags): string {
+    if (is_string($tags)) {
+        $parts = explode(',', $tags);
+    } elseif (is_array($tags)) {
+        $parts = $tags;
+    } else {
+        return '';
+    }
+    $clean = [];
+    foreach ($parts as $t) {
+        $t = trim(str_replace(',', ' ', (string) $t));
+        $t = preg_replace('/\s+/', ' ', $t);
+        if ($t !== '' && !in_array($t, $clean, true)) {
+            $clean[] = $t;
+        }
+    }
+    return implode(',', array_slice($clean, 0, 25));
+}
+
+/**
+ * Set the tags for a record.
+ *
+ * POST { "set_tags": 1, "record_id": 123, "tags": "rock,favorite" }
+ */
+function handleSetTags(PDO $pdo, array $data): void {
+    $recordId = (int) ($data['record_id'] ?? 0);
+    if ($recordId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'A valid record_id is required.']);
+        return;
+    }
+    ensureRecordsColumns($pdo);
+    $tags = normalizeTags($data['tags'] ?? '');
+    $pdo->prepare('UPDATE records SET tags = :t WHERE id = :id')
+        ->execute([':t' => $tags, ':id' => $recordId]);
+    echo json_encode(['success' => true, 'tags' => $tags === '' ? [] : explode(',', $tags)]);
+}
+
+/**
+ * Return the distinct tags used across the collection.
+ *
+ * GET ?tags_list=1
+ */
+function handleTagsList(PDO $pdo): void {
+    ensureRecordsColumns($pdo);
+    $rows = $pdo->query("SELECT tags FROM records WHERE tags IS NOT NULL AND tags != ''")->fetchAll(PDO::FETCH_COLUMN);
+    $set = [];
+    foreach ($rows as $t) {
+        foreach (explode(',', $t) as $tag) {
+            $tag = trim($tag);
+            if ($tag !== '') $set[$tag] = ($set[$tag] ?? 0) + 1;
+        }
+    }
+    ksort($set, SORT_NATURAL | SORT_FLAG_CASE);
+    $tags = [];
+    foreach ($set as $name => $count) {
+        $tags[] = ['tag' => $name, 'count' => $count];
+    }
+    echo json_encode(['success' => true, 'tags' => $tags]);
+}
+
+/**
  * Auto-create the listening_sessions table if it doesn't exist.
  */
 function ensureSessionsTable(PDO $pdo): void {
@@ -823,6 +1001,128 @@ function handleGetWishlist(PDO $pdo): void {
     ensureWishlistTable($pdo);
     $rows = $pdo->query('SELECT * FROM wishlist ORDER BY added_at DESC')->fetchAll();
     echo json_encode(['success' => true, 'wishlist' => $rows]);
+}
+
+/**
+ * Full collection backup — records + wishlist as JSON.
+ *
+ * GET ?backup=1
+ */
+function handleBackup(PDO $pdo): void {
+    ensureRecordsColumns($pdo);
+    $records = $pdo->query('SELECT * FROM records ORDER BY id')->fetchAll();
+
+    $wishlist = [];
+    try {
+        ensureWishlistTable($pdo);
+        $wishlist = $pdo->query('SELECT * FROM wishlist ORDER BY id')->fetchAll();
+    } catch (\Throwable $e) {
+        // wishlist optional
+    }
+
+    echo json_encode([
+        'app'         => 'My Records Collection',
+        'version'     => 1,
+        'exported_at' => date('c'),
+        'counts'      => ['records' => count($records), 'wishlist' => count($wishlist)],
+        'records'     => $records,
+        'wishlist'    => $wishlist,
+    ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * Restore records + wishlist from a JSON backup.
+ * Duplicate records (artist + album + format) are skipped.
+ *
+ * POST ?restore=1  body: { records: [...], wishlist: [...] }
+ */
+function handleRestore(PDO $pdo): void {
+    $raw = file_get_contents('php://input');
+    if (strlen($raw) > 20 * 1024 * 1024) {
+        http_response_code(413);
+        echo json_encode(['success' => false, 'message' => 'Backup too large (max 20 MB).']);
+        return;
+    }
+    $data = json_decode($raw, true);
+    if (!is_array($data) || !isset($data['records']) || !is_array($data['records'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid backup file.']);
+        return;
+    }
+
+    ensureRecordsColumns($pdo);
+    $validFormats = ['Vinyl', 'CD', 'Cassette', 'Digital'];
+    $importedR = 0;
+    $skippedR  = 0;
+
+    $ins = $pdo->prepare('
+        INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, rating, play_count, discogs_value, tags)
+        VALUES (:artist, :album, :year, :genre, :format, :cond, :notes, :cover, :rating, :plays, :value, :tags)
+    ');
+
+    foreach ($data['records'] as $r) {
+        $artist = trim($r['artist'] ?? '');
+        $album  = trim($r['album'] ?? '');
+        if ($artist === '' || $album === '') { $skippedR++; continue; }
+
+        $format = in_array($r['format'] ?? 'Vinyl', $validFormats, true) ? $r['format'] : 'Vinyl';
+        if (findDuplicate($pdo, $artist, $album, $format)) { $skippedR++; continue; }
+
+        try {
+            $ins->execute([
+                ':artist' => $artist,
+                ':album'  => $album,
+                ':year'   => !empty($r['year']) ? (int) $r['year'] : null,
+                ':genre'  => trim($r['genre'] ?? ''),
+                ':format' => $format,
+                ':cond'   => trim($r['condition_grade'] ?? ''),
+                ':notes'  => trim($r['notes'] ?? ''),
+                ':cover'  => trim($r['cover_url'] ?? ''),
+                ':rating' => isset($r['rating']) ? (int) $r['rating'] : 0,
+                ':plays'  => isset($r['play_count']) ? (int) $r['play_count'] : 0,
+                ':value'  => (isset($r['discogs_value']) && $r['discogs_value'] !== '' && $r['discogs_value'] !== null) ? (float) $r['discogs_value'] : null,
+                ':tags'   => normalizeTags($r['tags'] ?? ''),
+            ]);
+            $importedR++;
+        } catch (\Throwable $e) {
+            $skippedR++;
+        }
+    }
+
+    // Wishlist (optional)
+    $importedW = 0;
+    if (!empty($data['wishlist']) && is_array($data['wishlist'])) {
+        ensureWishlistTable($pdo);
+        $winsStmt = $pdo->prepare('
+            INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes)
+            VALUES (:artist, :album, :format, :price, :url, :notes)
+        ');
+        foreach ($data['wishlist'] as $w) {
+            $artist = trim($w['artist'] ?? '');
+            $album  = trim($w['album'] ?? '');
+            if ($artist === '' || $album === '') continue;
+            try {
+                $winsStmt->execute([
+                    ':artist' => $artist,
+                    ':album'  => $album,
+                    ':format' => trim($w['format'] ?? 'Vinyl') ?: 'Vinyl',
+                    ':price'  => (isset($w['target_price']) && $w['target_price'] !== '' && $w['target_price'] !== null) ? (float) $w['target_price'] : null,
+                    ':url'    => trim($w['discogs_url'] ?? '') ?: null,
+                    ':notes'  => trim($w['notes'] ?? '') ?: null,
+                ]);
+                $importedW++;
+            } catch (\Throwable $e) {
+                // skip bad row
+            }
+        }
+    }
+
+    echo json_encode([
+        'success'           => true,
+        'records_imported'  => $importedR,
+        'records_skipped'   => $skippedR,
+        'wishlist_imported' => $importedW,
+    ]);
 }
 
 /**
@@ -1832,6 +2132,17 @@ function handleDiscogsValue(PDO $pdo): void {
         ]);
     } catch (PDOException $e) {
         error_log('[Records API] Discogs cache write failed: ' . $e->getMessage());
+    }
+
+    // Persist the headline value onto the record for card badges / sorting
+    try {
+        $recordValue = $medianPrice ?? $lowestPrice;
+        if ($recordValue !== null) {
+            $pdo->prepare('UPDATE records SET discogs_value = :v WHERE id = :id')
+                ->execute([':v' => $recordValue, ':id' => $recordId]);
+        }
+    } catch (\Throwable $e) {
+        error_log('[Records API] discogs_value write failed: ' . $e->getMessage());
     }
 
     echo json_encode([

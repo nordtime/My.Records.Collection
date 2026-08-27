@@ -41,6 +41,7 @@
     let currentRecords = [];        // cache for current view
     let debounceTimer  = null;
     let csvParsedRows  = [];
+    let activeTag      = null;       // active tag/shelf filter
 
     const $importOverlay  = document.getElementById('importOverlay');
     const $importPreview  = document.getElementById('importPreview');
@@ -73,6 +74,10 @@
 
         // Set Default view
         $btnSetDefault.addEventListener('click', saveDefaultView);
+
+        // Surprise Me — random record picker
+        const btnSpin = document.getElementById('btnSpin');
+        if (btnSpin) btnSpin.addEventListener('click', spinRandom);
 
         // Add buttons
         document.getElementById('btnAdd').addEventListener('click', openAddModal);
@@ -238,6 +243,7 @@
             if ($genre.value) params.set('genre', $genre.value);
             if ($year.value) params.set('year', $year.value);
             if ($format.value) params.set('format', $format.value);
+            if (activeTag) params.set('tag', activeTag);
             params.set('sort', $sort.value);
 
             // Fetch all records from API
@@ -312,11 +318,16 @@
                         ${r.genre ? `<span class="badge badge-genre">${escHtml(r.genre)}</span>` : ''}
                         <span class="badge">${escHtml(r.format)}</span>
                         ${r.condition_grade ? `<span class="badge badge-condition">${escHtml(r.condition_grade)}</span>` : ''}
+                        ${r.rating > 0 ? `<span class="badge badge-rating" title="Your rating">★ ${r.rating}</span>` : ''}
+                        ${r.play_count > 0 ? `<span class="badge badge-plays" title="Times played">📀 ${r.play_count}</span>` : ''}
+                        ${r.discogs_value ? `<span class="badge badge-value" title="Discogs value">$${parseFloat(r.discogs_value).toFixed(0)}</span>` : ''}
                     </div>
+                    ${r.tags ? `<div class="card-tags">${r.tags.split(',').filter(t => t.trim()).map(t => `<span class="tag-chip" data-tag="${escHtml(t.trim())}">${escHtml(t.trim())}</span>`).join('')}</div>` : ''}
                     ${r.notes ? `<div class="card-notes">${escHtml(r.notes)}</div>` : ''}
                 </div>
                 <div class="card-actions">
                     <a class="btn btn-ghost btn-sm btn-spotify" href="https://open.spotify.com/search/${encodeURIComponent(r.artist + ' ' + r.album)}" target="_blank" rel="noopener noreferrer" title="Find on Spotify"><svg class="spotify-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></a>
+                    <button class="btn btn-ghost btn-sm btn-played" data-id="${r.id}" title="Mark as played">&#128191;</button>
                     <button class="btn btn-ghost btn-sm btn-value" data-id="${r.id}" title="Discogs Value">&#128176; Value</button>
                     <button class="btn btn-ghost btn-sm btn-edit" data-id="${r.id}" title="Edit">&#9998; Edit</button>
                     <button class="btn btn-ghost btn-sm btn-delete" data-id="${r.id}" title="Delete">&#128465; Delete</button>
@@ -333,6 +344,12 @@
         );
         $grid.querySelectorAll('.btn-value').forEach(btn =>
             btn.addEventListener('click', e => { e.stopPropagation(); openDiscogsValue(parseInt(btn.dataset.id), records); })
+        );
+        $grid.querySelectorAll('.btn-played').forEach(btn =>
+            btn.addEventListener('click', e => { e.stopPropagation(); markPlayed(parseInt(btn.dataset.id), records); })
+        );
+        $grid.querySelectorAll('.tag-chip').forEach(chip =>
+            chip.addEventListener('click', e => { e.stopPropagation(); setActiveTag(chip.dataset.tag); })
         );
 
         // Bind image error handler (CSP-compliant)
@@ -383,6 +400,82 @@
                 }
             });
         });
+    }
+
+    // ── Tag / shelf filtering ───────────────────────────────
+    function setActiveTag(tag) {
+        activeTag = tag || null;
+        updateActiveTagUI();
+        loadRecords();
+    }
+
+    function clearActiveTag() {
+        activeTag = null;
+        updateActiveTagUI();
+        loadRecords();
+    }
+
+    function updateActiveTagUI() {
+        const el = document.getElementById('activeTagFilter');
+        if (!el) return;
+        if (activeTag) {
+            el.innerHTML = `<span class="active-tag-pill">🏷️ ${escHtml(activeTag)} <button class="active-tag-clear" title="Clear tag filter" aria-label="Clear tag filter">✕</button></span>`;
+            el.classList.remove('hidden');
+            const clearBtn = el.querySelector('.active-tag-clear');
+            if (clearBtn) clearBtn.addEventListener('click', clearActiveTag);
+        } else {
+            el.innerHTML = '';
+            el.classList.add('hidden');
+        }
+    }
+
+    // ── Surprise Me — pick a random record from the current view ──
+    function spinRandom() {
+        const pool = window.records || [];
+        if (!pool.length) {
+            showToast('No records to pick from', 'error');
+            return;
+        }
+        const r = pool[Math.floor(Math.random() * pool.length)];
+        if (r && window.RecordDetail) {
+            window.RecordDetail.open(r);
+        } else if (r) {
+            openTracklist(r.artist, r.album);
+        }
+    }
+
+    // ── Quick "Mark as Played" from a card ──────────────────
+    async function markPlayed(id, records) {
+        try {
+            const res = await fetch(`${API}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ play: 1, record_id: id })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Failed');
+
+            const r = records.find(rec => rec.id == id);
+            if (r) {
+                r.play_count = (parseInt(r.play_count) || 0) + 1;
+                const card = $grid.querySelector(`.record-card[data-id="${id}"] .card-meta`);
+                if (card) {
+                    let badge = card.querySelector('.badge-plays');
+                    if (badge) {
+                        badge.textContent = `📀 ${r.play_count}`;
+                    } else {
+                        badge = document.createElement('span');
+                        badge.className = 'badge badge-plays';
+                        badge.title = 'Times played';
+                        badge.textContent = `📀 ${r.play_count}`;
+                        card.appendChild(badge);
+                    }
+                }
+            }
+            showToast('Marked as played', 'success');
+        } catch (err) {
+            showToast('Could not log play', 'error');
+        }
     }
 
     // ── Default View ────────────────────────────────────────
@@ -460,6 +553,7 @@
             document.getElementById('conditionGrade').value  = r.condition_grade || '';
             document.getElementById('coverUrl').value        = r.cover_url || '';
             document.getElementById('notes').value           = r.notes || '';
+            document.getElementById('tags').value            = r.tags || '';
             $modalOverlay.classList.remove('hidden');
         } catch {
             // error toasted
@@ -655,6 +749,7 @@
             condition_grade: document.getElementById('conditionGrade').value,
             cover_url:       document.getElementById('coverUrl').value,
             notes:           document.getElementById('notes').value,
+            tags:            document.getElementById('tags').value,
         };
 
         const id = $recordId.value;

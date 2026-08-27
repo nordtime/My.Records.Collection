@@ -4,7 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💿 My Records Collection</title>
-    <link rel="stylesheet" href="css/style.css?v=20260827120000">
+    <script>
+        // Apply saved theme before first paint to avoid a flash of the wrong theme
+        (function () {
+            try {
+                var t = localStorage.getItem('rc-theme');
+                if (t === 'light' || t === 'dark') {
+                    document.documentElement.setAttribute('data-theme', t);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=20260827160000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -60,11 +71,20 @@
                 <button class="btn btn-ghost btn-sm" id="btnAdvancedFilters" title="Advanced filters">
                     &#128269; Filters
                 </button>
+                <button class="btn btn-ghost btn-sm" id="btnSetDefault" title="Save current filters &amp; sort as default view">&#9733; Set Default</button>
             </div>
             <div class="btn-group">
-                <button class="btn btn-ghost" id="btnSetDefault" title="Save current filters &amp; sort as default view">&#9733; Set Default</button>
-                <button class="btn btn-ghost" id="btnExportCsv" title="Export to CSV">&#128228; Export CSV</button>
-                <button class="btn btn-ghost" id="btnImportCsv" title="Import from CSV">&#128229; Import CSV</button>
+                <button class="btn btn-ghost" id="btnSpin" title="Pick a random record to play">&#127922; Surprise Me</button>
+                <div class="menu-wrap" id="dataMenu">
+                    <button class="btn btn-ghost" id="btnDataMenu" aria-haspopup="true" aria-expanded="false" title="Import, export &amp; backup">&#128190; Data &#9662;</button>
+                    <div class="menu-popover hidden" role="menu">
+                        <button class="menu-popover-item" id="btnExportCsv" role="menuitem">&#128228; Export CSV</button>
+                        <button class="menu-popover-item" id="btnImportCsv" role="menuitem">&#128229; Import CSV</button>
+                        <div class="menu-popover-sep"></div>
+                        <button class="menu-popover-item" id="btnBackup" role="menuitem">&#128190; Backup (JSON)</button>
+                        <button class="menu-popover-item" id="btnRestore" role="menuitem">&#9851; Restore (JSON)</button>
+                    </div>
+                </div>
                 <button class="btn btn-primary" id="btnAdd">&#43; Add Record</button>
             </div>
         </div>
@@ -104,7 +124,15 @@
 
     <!-- ── Records Grid ──────────────────────────────────── -->
     <main class="main-content">
-        <div class="records-count" id="recordsCount"></div>
+        <section class="dashboard-strip hidden" id="dashboardStrip" aria-label="Collection summary"></section>
+        <div class="results-header">
+            <div class="records-count" id="recordsCount"></div>
+            <div id="activeTagFilter" class="active-tag-filter hidden"></div>
+            <div class="view-toggle" role="group" aria-label="View mode">
+                <button class="view-btn active" id="viewGrid" title="Grid view" aria-pressed="true">&#9638; Grid</button>
+                <button class="view-btn" id="viewList" title="List view" aria-pressed="false">&#9776; List</button>
+            </div>
+        </div>
         <div class="records-grid" id="recordsGrid">
             <!-- Cards injected by JS -->
         </div>
@@ -187,6 +215,10 @@
                 <div class="form-group">
                     <label for="notes">Notes</label>
                     <textarea id="notes" class="input textarea" rows="3" placeholder="First pressing, signed copy…"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="tags">Tags / Shelves</label>
+                    <input type="text" id="tags" class="input" placeholder="favorites, to sell, 45rpm (comma-separated)">
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-ghost" id="btnCancel">Cancel</button>
@@ -300,19 +332,22 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     
     <!-- Priority 1 modules -->
+    <script src="js/theme.js?v=20260827130000"></script>
+    <script src="js/dashboard.js?v=20260827140000"></script>
+    <script src="js/backup.js?v=20260827140000"></script>
     <script src="js/enhanced-search.js?v=20260827113000"></script>
     <script src="js/keyboard-nav.js?v=20260827113000"></script>
     <script src="js/loading-states.js?v=20260827113000"></script>
     <script src="js/toast-notifications.js?v=20260827113000"></script>
     
     <!-- Priority 2 modules -->
-    <script src="js/record-detail.js?v=20260827120000"></script>
+    <script src="js/record-detail.js?v=20260827160000"></script>
     <script src="js/analytics.js?v=20260827113000"></script>
     <script src="js/wishlist.js?v=20260827113000"></script>
     <script src="js/listening-sessions.js?v=20260827113000"></script>
     
     <!-- Main application -->
-    <script src="js/app.js?v=20260827113000"></script>
-    <script src="js/init.js?v=20260827113000"></script>
+    <script src="js/app.js?v=20260827150000"></script>
+    <script src="js/init.js?v=20260827160000"></script>
 </body>
 </html>

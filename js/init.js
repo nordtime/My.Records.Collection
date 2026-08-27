@@ -3,16 +3,8 @@
  * Binds UI event listeners for filters and search
  */
 document.addEventListener('DOMContentLoaded', () => {
-    // Toggle advanced filters panel
-    const btnAdvancedFilters = document.getElementById('btnAdvancedFilters');
-    const advancedFiltersPanel = document.getElementById('advancedFiltersPanel');
-    
-    if (btnAdvancedFilters && advancedFiltersPanel) {
-        btnAdvancedFilters.addEventListener('click', () => {
-            advancedFiltersPanel.classList.toggle('hidden');
-            btnAdvancedFilters.classList.toggle('btn-filter-active');
-        });
-    }
+    // Note: the advanced-filters toggle is bound in app.js. Do not bind it here
+    // as well — a second handler would toggle the panel twice per click (no-op).
 
     // Clear filters button
     const btnClearFilters = document.getElementById('btnClearFilters');
@@ -53,5 +45,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.triggerRecordReload();
             }
         });
+    }
+
+    // Data dropdown menu (Export/Import/Backup/Restore)
+    const dataMenu = document.getElementById('dataMenu');
+    const btnDataMenu = document.getElementById('btnDataMenu');
+    if (dataMenu && btnDataMenu) {
+        const popover = dataMenu.querySelector('.menu-popover');
+        btnDataMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = popover.classList.toggle('hidden');
+            btnDataMenu.setAttribute('aria-expanded', String(!open));
+        });
+        popover.querySelectorAll('.menu-popover-item').forEach(item =>
+            item.addEventListener('click', () => {
+                popover.classList.add('hidden');
+                btnDataMenu.setAttribute('aria-expanded', 'false');
+            })
+        );
+        document.addEventListener('click', (e) => {
+            if (!dataMenu.contains(e.target)) {
+                popover.classList.add('hidden');
+                btnDataMenu.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    // Grid / List view toggle
+    const grid = document.getElementById('recordsGrid');
+    const viewGrid = document.getElementById('viewGrid');
+    const viewList = document.getElementById('viewList');
+    if (grid && viewGrid && viewList) {
+        const VIEW_KEY = 'rc-view';
+        const applyView = (mode) => {
+            const isList = mode === 'list';
+            grid.classList.toggle('list-view', isList);
+            viewList.classList.toggle('active', isList);
+            viewGrid.classList.toggle('active', !isList);
+            viewList.setAttribute('aria-pressed', String(isList));
+            viewGrid.setAttribute('aria-pressed', String(!isList));
+            localStorage.setItem(VIEW_KEY, mode);
+        };
+        viewGrid.addEventListener('click', () => applyView('grid'));
+        viewList.addEventListener('click', () => applyView('list'));
+        applyView(localStorage.getItem(VIEW_KEY) || 'grid');
     }
 });

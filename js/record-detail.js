@@ -131,6 +131,16 @@
                                         </div>
                                     </div>
 
+                                    <!-- Tags / shelves editor -->
+                                    <div class="detail-tags-section">
+                                        <span class="metadata-label">Tags / Shelves</span>
+                                        <div class="detail-tags"></div>
+                                        <form class="tag-add-form" autocomplete="off">
+                                            <input type="text" class="input tag-add-input" placeholder="Add a tag…" maxlength="40" aria-label="Add a tag">
+                                            <button type="submit" class="btn btn-ghost btn-sm">+ Add</button>
+                                        </form>
+                                    </div>
+
                                     <!-- External links -->
                                     <div class="detail-links">
                                         <a class="detail-link discogs-link" target="_blank" rel="noopener">
@@ -232,6 +242,17 @@
             modal.querySelector('.detail-delete-btn')?.addEventListener('click', () => {
                 this.deleteRecord();
             });
+
+            // Add a tag from the tag editor
+            modal.querySelector('.tag-add-form')?.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = modal.querySelector('.tag-add-input');
+                const val = input.value.trim();
+                if (val) {
+                    this.addTag(val);
+                    input.value = '';
+                }
+            });
         },
 
         /**
@@ -296,8 +317,8 @@
             modal.querySelector('.detail-format').innerHTML = this.formatBadge(record.format);
             modal.querySelector('.detail-year').textContent = record.year || 'Unknown';
             modal.querySelector('.detail-genre').textContent = record.genre || 'Not specified';
-            modal.querySelector('.detail-condition').textContent = record.condition || 'Not specified';
-            modal.querySelector('.detail-date-added').textContent = this.formatDate(record.created_at);
+            modal.querySelector('.detail-condition').textContent = record.condition_grade || record.condition || 'Not specified';
+            modal.querySelector('.detail-date-added').textContent = this.formatDate(record.date_added || record.created_at);
 
             // Purchase info
             const purchaseInfo = [];
@@ -319,6 +340,9 @@
 
             // Notes
             modal.querySelector('.detail-notes').textContent = record.notes || 'No notes';
+
+            // Tags / shelves
+            this.renderTags(record);
 
             // External links
             const discogsLink = modal.querySelector('.discogs-link');
@@ -531,16 +555,17 @@
             // Save to backend
             try {
                 const response = await fetch('api/api.php', {
-                    method: 'PUT',
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        id: this.currentRecord.id,
+                        rate: 1,
+                        record_id: this.currentRecord.id,
                         rating: rating
                     })
                 });
 
                 const data = await response.json();
-                if (response.ok) {
+                if (data.success) {
                     if (window.ToastNotifications) {
                         window.ToastNotifications.success(`Rated ${rating} star${rating !== 1 ? 's' : ''}`);
                     }
@@ -554,6 +579,89 @@
             } catch (error) {
                 console.error('Failed to save rating:', error);
             }
+        },
+
+        /**
+         * Parse a record's tags string into an array.
+         */
+        getTags(record) {
+            if (!record || !record.tags) return [];
+            return record.tags.split(',').map(t => t.trim()).filter(Boolean);
+        },
+
+        /**
+         * Render the tag chips in the detail view.
+         */
+        renderTags(record) {
+            const el = document.querySelector('.detail-tags');
+            if (!el) return;
+            const tags = this.getTags(record);
+            if (!tags.length) {
+                el.innerHTML = '<span class="detail-tags-empty">No tags yet</span>';
+                return;
+            }
+            el.innerHTML = tags.map(t => `
+                <span class="detail-tag-chip">
+                    <span class="detail-tag-name">${this.escapeHtml(t)}</span>
+                    <button class="detail-tag-remove" data-tag="${this.escapeHtml(t)}" title="Remove tag" aria-label="Remove ${this.escapeHtml(t)}">✕</button>
+                </span>
+            `).join('');
+
+            el.querySelectorAll('.detail-tag-remove').forEach(btn =>
+                btn.addEventListener('click', () => this.removeTag(btn.dataset.tag))
+            );
+        },
+
+        addTag(tag) {
+            const tags = this.getTags(this.currentRecord);
+            const clean = tag.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!clean || tags.some(t => t.toLowerCase() === clean.toLowerCase())) return;
+            tags.push(clean);
+            this.saveTags(tags);
+        },
+
+        removeTag(tag) {
+            const tags = this.getTags(this.currentRecord).filter(t => t.toLowerCase() !== tag.toLowerCase());
+            this.saveTags(tags);
+        },
+
+        async saveTags(tags) {
+            if (!this.currentRecord) return;
+            const tagStr = tags.join(',');
+            // Optimistic update
+            this.currentRecord.tags = tagStr;
+            this.renderTags(this.currentRecord);
+
+            try {
+                const response = await fetch('api/api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ set_tags: 1, record_id: this.currentRecord.id, tags: tagStr })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const normalized = (data.tags || []).join(',');
+                    this.currentRecord.tags = normalized;
+                    if (window.records) {
+                        const rec = window.records.find(r => r.id === this.currentRecord.id);
+                        if (rec) rec.tags = normalized;
+                    }
+                    this.renderTags(this.currentRecord);
+                    // Refresh the grid card so its chips update
+                    if (window.triggerRecordReload) window.triggerRecordReload();
+                } else {
+                    throw new Error(data.message || 'Failed');
+                }
+            } catch (error) {
+                console.error('Failed to save tags:', error);
+                if (window.ToastNotifications) window.ToastNotifications.error('Failed to save tags');
+            }
+        },
+
+        escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
         },
 
         /**
