@@ -688,10 +688,8 @@ body {
 }
 .tag-caret { font-size: 0.6rem; }
 .tag-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 30;
+    position: fixed;
+    z-index: 1000;
     min-width: 240px;
     padding: 0.25rem;
     background: var(--bg-modal);

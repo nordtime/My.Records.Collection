@@ -332,7 +332,6 @@
                         <span class="card-tags-chips">${tagChipsHtml(r)}</span>
                         <div class="tag-dropdown">
                             <button class="tag-dropdown-btn" data-id="${r.id}" aria-haspopup="true" aria-expanded="false" title="Add or remove tags">🏷️<span class="tag-caret">▾</span></button>
-                            <div class="tag-dropdown-menu hidden" role="menu" aria-label="Assign tags"></div>
                         </div>
                     </div>
                     ${r.notes ? `<div class="card-notes">${escHtml(r.notes)}</div>` : ''}
@@ -364,15 +363,9 @@
         $grid.querySelectorAll('.tag-dropdown-btn').forEach(btn =>
             btn.addEventListener('click', e => {
                 e.stopPropagation();
-                const menu = btn.parentElement.querySelector('.tag-dropdown-menu');
-                const isOpen = !menu.classList.contains('hidden');
-                closeAllTagMenus();
-                if (isOpen) return;
                 const record = records.find(r => r.id == btn.dataset.id);
                 if (!record) return;
-                buildTagMenu(record, menu);
-                menu.classList.remove('hidden');
-                btn.setAttribute('aria-expanded', 'true');
+                openTagMenu(btn, record);
             })
         );
 
@@ -450,9 +443,51 @@
         } catch { /* ignore — picker just shows the empty state */ }
     }
 
+    // A single body-level popover so the menu is never clipped by the card's overflow
+    let tagPopover = null;
+    let tagPopoverBtn = null;
+
+    function getTagPopover() {
+        if (!tagPopover) {
+            tagPopover = document.createElement('div');
+            tagPopover.className = 'tag-dropdown-menu hidden';
+            tagPopover.setAttribute('role', 'menu');
+            tagPopover.setAttribute('aria-label', 'Assign tags');
+            document.body.appendChild(tagPopover);
+        }
+        return tagPopover;
+    }
+
+    function positionTagPopover(btn) {
+        const menu = getTagPopover();
+        const r = btn.getBoundingClientRect();
+        menu.style.visibility = 'hidden';
+        menu.classList.remove('hidden');
+        const mh = menu.offsetHeight;
+        const mw = menu.offsetWidth;
+        const spaceBelow = window.innerHeight - r.bottom;
+        const top = (spaceBelow < mh + 8 && r.top > mh + 8) ? (r.top - mh - 4) : (r.bottom + 4);
+        let left = r.left;
+        if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+        menu.style.top = `${Math.max(8, top)}px`;
+        menu.style.left = `${left}px`;
+        menu.style.visibility = '';
+    }
+
+    function openTagMenu(btn, record) {
+        const menu = getTagPopover();
+        const isOpenForThis = !menu.classList.contains('hidden') && tagPopoverBtn === btn;
+        closeAllTagMenus();
+        if (isOpenForThis) return;
+        tagPopoverBtn = btn;
+        buildTagMenu(record, menu);
+        positionTagPopover(btn);
+        btn.setAttribute('aria-expanded', 'true');
+    }
+
     function closeAllTagMenus() {
-        $grid.querySelectorAll('.tag-dropdown-menu').forEach(m => m.classList.add('hidden'));
-        $grid.querySelectorAll('.tag-dropdown-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+        if (tagPopover) tagPopover.classList.add('hidden');
+        if (tagPopoverBtn) { tagPopoverBtn.setAttribute('aria-expanded', 'false'); tagPopoverBtn = null; }
     }
 
     function buildTagMenu(record, menu) {
@@ -493,6 +528,7 @@
         const exists = (record.tags || '').split(',').some(t => t.trim().toLowerCase() === tag.toLowerCase());
         if (!exists) await toggleRecordTag(record, tag, true);
         buildTagMenu(record, menu);
+        if (tagPopoverBtn) positionTagPopover(tagPopoverBtn);
         const input = menu.querySelector('.tag-new-input');
         if (input) input.focus();
     }
@@ -524,8 +560,13 @@
         } catch { showToast('Network error while saving tags', 'error'); }
     }
 
-    // Close any open tag menu when clicking elsewhere
+    // Close any open tag menu when clicking elsewhere, scrolling the page, or resizing
     document.addEventListener('click', () => closeAllTagMenus());
+    window.addEventListener('resize', () => closeAllTagMenus());
+    window.addEventListener('scroll', (e) => {
+        if (tagPopover && tagPopover.contains(e.target)) return; // ignore scrolling inside the menu
+        closeAllTagMenus();
+    }, true);
 
     // ── Tag / shelf filtering ───────────────────────────────
     function setActiveTag(tag) {
