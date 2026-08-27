@@ -25,6 +25,7 @@ header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth_lib.php';
 
 define('DISCOGS_TOKEN_FILE', __DIR__ . '/discogs_token.txt');
 define('DISCOGS_RATE_FILE', sys_get_temp_dir() . '/records_discogs_rate.json');
@@ -40,6 +41,17 @@ if ($method === 'OPTIONS') {
 
 try {
     $pdo = get_db();
+    ensureAuthSchema($pdo);
+
+    // Every data endpoint requires an authenticated, active user
+    $authUser = require_auth($pdo);
+    $GLOBALS['RC_UID'] = (int) $authUser['id'];
+
+    // CSRF protection for state-changing requests
+    if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
+        require_csrf();
+    }
+
     ensureRecordsColumns($pdo);
 
     switch ($method) {
@@ -53,12 +65,16 @@ try {
 
             // Meta endpoint — distinct years and genres for filter dropdowns
             if (isset($_GET['meta'])) {
-                $years  = $pdo->query(
-                    "SELECT DISTINCT year FROM records WHERE year IS NOT NULL AND year != '' ORDER BY CAST(year AS UNSIGNED) DESC"
-                )->fetchAll(PDO::FETCH_COLUMN);
-                $genres = $pdo->query(
-                    "SELECT DISTINCT genre FROM records WHERE genre IS NOT NULL AND genre != '' ORDER BY genre ASC"
-                )->fetchAll(PDO::FETCH_COLUMN);
+                $years  = $pdo->prepare(
+                    "SELECT DISTINCT year FROM records WHERE user_id = :uid AND year IS NOT NULL AND year != '' ORDER BY CAST(year AS UNSIGNED) DESC"
+                );
+                $years->execute([':uid' => uid()]);
+                $years = $years->fetchAll(PDO::FETCH_COLUMN);
+                $genres = $pdo->prepare(
+                    "SELECT DISTINCT genre FROM records WHERE user_id = :uid AND genre IS NOT NULL AND genre != '' ORDER BY genre ASC"
+                );
+                $genres->execute([':uid' => uid()]);
+                $genres = $genres->fetchAll(PDO::FETCH_COLUMN);
                 echo json_encode(['years' => $years, 'genres' => $genres]);
                 break;
             }
@@ -132,8 +148,8 @@ try {
             // Single record
             if (isset($_GET['id'])) {
                 $id = (int) $_GET['id'];
-                $stmt = $pdo->prepare('SELECT * FROM records WHERE id = :id');
-                $stmt->execute([':id' => $id]);
+                $stmt = $pdo->prepare('SELECT * FROM records WHERE id = :id AND user_id = :uid');
+                $stmt->execute([':id' => $id, ':uid' => uid()]);
                 $record = $stmt->fetch();
 
                 if (!$record) {
@@ -148,6 +164,9 @@ try {
             // List with optional filters
             $where = [];
             $params = [];
+
+            $where[] = 'user_id = :uid';
+            $params[':uid'] = uid();
 
             if (!empty($_GET['search'])) {
                 $where[] = '(artist LIKE :searchA OR album LIKE :searchB)';
@@ -266,7 +285,7 @@ try {
             // Duplicate check (artist + album + format, case-insensitive)
             $force = isset($_GET['force']) && $_GET['force'] === '1';
             if (!$force) {
-                $dup = findDuplicate($pdo, trim($data['artist']), trim($data['album']), $data['format'] ?? 'Vinyl');
+                $dup = findDuplicate($pdo, trim($data['artist']), trim($data['album']), $data['format'] ?? 'Vinyl', null, uid());
                 if ($dup) {
                     http_response_code(409);
                     echo json_encode([
@@ -280,8 +299,8 @@ try {
             $coverUrl = cacheCoverUrl($data['cover_url'] ?? '');
 
             $stmt = $pdo->prepare('
-                INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, tags)
-                VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url, :tags)
+                INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, tags, user_id)
+                VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url, :tags, :user_id)
             ');
             $stmt->execute([
                 ':artist'          => trim($data['artist']),
@@ -293,6 +312,7 @@ try {
                 ':notes'           => trim($data['notes'] ?? ''),
                 ':cover_url'       => $coverUrl,
                 ':tags'            => normalizeTags($data['tags'] ?? ''),
+                ':user_id'         => uid(),
             ]);
 
             $newId = (int) $pdo->lastInsertId();
@@ -324,9 +344,14 @@ try {
             }
 
             // Fetch old record before update for cache invalidation
-            $stmt = $pdo->prepare('SELECT artist, album FROM records WHERE id = :id');
-            $stmt->execute([':id' => $id]);
+            $stmt = $pdo->prepare('SELECT artist, album FROM records WHERE id = :id AND user_id = :uid');
+            $stmt->execute([':id' => $id, ':uid' => uid()]);
             $oldAlbum = $stmt->fetch();
+            if (!$oldAlbum) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Record not found.']);
+                break;
+            }
 
             $coverUrl = cacheCoverUrl($data['cover_url'] ?? '');
 
@@ -341,7 +366,7 @@ try {
                     notes           = :notes,
                     cover_url       = :cover_url,
                     tags            = :tags
-                WHERE id = :id
+                WHERE id = :id AND user_id = :uid
             ');
             $stmt->execute([
                 ':artist'          => trim($data['artist']),
@@ -354,12 +379,13 @@ try {
                 ':cover_url'       => $coverUrl,
                 ':tags'            => normalizeTags($data['tags'] ?? ''),
                 ':id'              => $id,
+                ':uid'             => uid(),
             ]);
 
             // rowCount() returns 0 when values are unchanged — verify the record exists
             if ($stmt->rowCount() === 0) {
-                $check = $pdo->prepare('SELECT id FROM records WHERE id = :id');
-                $check->execute([':id' => $id]);
+                $check = $pdo->prepare('SELECT id FROM records WHERE id = :id AND user_id = :uid');
+                $check->execute([':id' => $id, ':uid' => uid()]);
                 if (!$check->fetch()) {
                     http_response_code(404);
                     echo json_encode(['error' => 'Record not found.']);
@@ -403,8 +429,8 @@ try {
             $id = (int) $_GET['id'];
 
             // Fetch the record first so we can clean up related data
-            $stmt = $pdo->prepare('SELECT artist, album, cover_url FROM records WHERE id = :id');
-            $stmt->execute([':id' => $id]);
+            $stmt = $pdo->prepare('SELECT artist, album, cover_url FROM records WHERE id = :id AND user_id = :uid');
+            $stmt->execute([':id' => $id, ':uid' => uid()]);
             $record = $stmt->fetch();
 
             if (!$record) {
@@ -414,8 +440,8 @@ try {
             }
 
             // Delete the record
-            $stmt = $pdo->prepare('DELETE FROM records WHERE id = :id');
-            $stmt->execute([':id' => $id]);
+            $stmt = $pdo->prepare('DELETE FROM records WHERE id = :id AND user_id = :uid');
+            $stmt->execute([':id' => $id, ':uid' => uid()]);
 
             // Delete matching track_cache entry
             $cacheKey = mb_strtolower(trim($record['artist']) . '||' . trim($record['album']));
@@ -446,9 +472,13 @@ try {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function findDuplicate(PDO $pdo, string $artist, string $album, string $format, ?int $excludeId = null): ?array {
+function findDuplicate(PDO $pdo, string $artist, string $album, string $format, ?int $excludeId = null, ?int $userId = null): ?array {
     $sql = 'SELECT id, artist, album, format FROM records WHERE LOWER(artist) = LOWER(:artist) AND LOWER(album) = LOWER(:album) AND format = :format';
     $params = [':artist' => $artist, ':album' => $album, ':format' => $format];
+    if ($userId !== null) {
+        $sql .= ' AND user_id = :userId';
+        $params[':userId'] = $userId;
+    }
     if ($excludeId !== null) {
         $sql .= ' AND id != :excludeId';
         $params[':excludeId'] = $excludeId;
@@ -742,8 +772,18 @@ function handleSetRating(PDO $pdo, array $data): void {
         return;
     }
     ensureRecordsColumns($pdo);
-    $pdo->prepare('UPDATE records SET rating = :r WHERE id = :id')
-        ->execute([':r' => $rating, ':id' => $recordId]);
+    $stmt = $pdo->prepare('UPDATE records SET rating = :r WHERE id = :id AND user_id = :uid');
+    $stmt->execute([':r' => $rating, ':id' => $recordId, ':uid' => uid()]);
+    if ($stmt->rowCount() === 0) {
+        // Either not found or unchanged — confirm ownership
+        $own = $pdo->prepare('SELECT id FROM records WHERE id = :id AND user_id = :uid');
+        $own->execute([':id' => $recordId, ':uid' => uid()]);
+        if (!$own->fetch()) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Record not found.']);
+            return;
+        }
+    }
     echo json_encode(['success' => true, 'message' => 'Rating saved.']);
 }
 
@@ -784,8 +824,8 @@ function handleSetTags(PDO $pdo, array $data): void {
     }
     ensureRecordsColumns($pdo);
     $tags = normalizeTags($data['tags'] ?? '');
-    $pdo->prepare('UPDATE records SET tags = :t WHERE id = :id')
-        ->execute([':t' => $tags, ':id' => $recordId]);
+    $stmt = $pdo->prepare('UPDATE records SET tags = :t WHERE id = :id AND user_id = :uid');
+    $stmt->execute([':t' => $tags, ':id' => $recordId, ':uid' => uid()]);
     echo json_encode(['success' => true, 'tags' => $tags === '' ? [] : explode(',', $tags)]);
 }
 
@@ -796,7 +836,9 @@ function handleSetTags(PDO $pdo, array $data): void {
  */
 function handleTagsList(PDO $pdo): void {
     ensureRecordsColumns($pdo);
-    $rows = $pdo->query("SELECT tags FROM records WHERE tags IS NOT NULL AND tags != ''")->fetchAll(PDO::FETCH_COLUMN);
+    $stmt = $pdo->prepare("SELECT tags FROM records WHERE user_id = :uid AND tags IS NOT NULL AND tags != ''");
+    $stmt->execute([':uid' => uid()]);
+    $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $set = [];
     foreach ($rows as $t) {
         foreach (explode(',', $t) as $tag) {
@@ -866,8 +908,8 @@ function handleLogPlay(PDO $pdo, array $data): void {
         return;
     }
 
-    $stmt = $pdo->prepare('SELECT id FROM records WHERE id = :id');
-    $stmt->execute([':id' => $recordId]);
+    $stmt = $pdo->prepare('SELECT id FROM records WHERE id = :id AND user_id = :uid');
+    $stmt->execute([':id' => $recordId, ':uid' => uid()]);
     if (!$stmt->fetch()) {
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Record not found.']);
@@ -911,8 +953,8 @@ function handleGetSessions(PDO $pdo): void {
         FROM listening_sessions s
         JOIN records r ON r.id = s.record_id
     ';
-    $where = [];
-    $params = [];
+    $where = ['r.user_id = :uid'];
+    $params = [':uid' => uid()];
     if ($since !== null) {
         $where[] = 's.played_at >= :since';
         $params[':since'] = $since;
@@ -941,30 +983,47 @@ function handleGetSessions(PDO $pdo): void {
  * Compute summary stats across all listening sessions.
  */
 function computeSessionStats(PDO $pdo): array {
-    $totalPlays = (int) $pdo->query('SELECT COUNT(*) FROM listening_sessions')->fetchColumn();
+    $totalStmt = $pdo->prepare('
+        SELECT COUNT(*) FROM listening_sessions s
+        JOIN records r ON r.id = s.record_id WHERE r.user_id = :uid
+    ');
+    $totalStmt->execute([':uid' => uid()]);
+    $totalPlays = (int) $totalStmt->fetchColumn();
 
-    $lastPlayed = $pdo->query('SELECT MAX(played_at) FROM listening_sessions')->fetchColumn() ?: null;
+    $lastStmt = $pdo->prepare('
+        SELECT MAX(s.played_at) FROM listening_sessions s
+        JOIN records r ON r.id = s.record_id WHERE r.user_id = :uid
+    ');
+    $lastStmt->execute([':uid' => uid()]);
+    $lastPlayed = $lastStmt->fetchColumn() ?: null;
 
     // Most played record
     $mostPlayed = null;
-    $row = $pdo->query('
+    $mp = $pdo->prepare('
         SELECT r.artist, r.album, COUNT(*) AS plays
         FROM listening_sessions s
         JOIN records r ON r.id = s.record_id
+        WHERE r.user_id = :uid
         GROUP BY s.record_id
         ORDER BY plays DESC
         LIMIT 1
-    ')->fetch();
+    ');
+    $mp->execute([':uid' => uid()]);
+    $row = $mp->fetch();
     if ($row) {
         $mostPlayed = $row['artist'] . ' – ' . $row['album'];
     }
 
     // Current streak: consecutive days (ending today or yesterday) with at least one play
-    $days = $pdo->query('
-        SELECT DISTINCT DATE(played_at) AS d
-        FROM listening_sessions
+    $daysStmt = $pdo->prepare('
+        SELECT DISTINCT DATE(s.played_at) AS d
+        FROM listening_sessions s
+        JOIN records r ON r.id = s.record_id
+        WHERE r.user_id = :uid
         ORDER BY d DESC
-    ')->fetchAll(PDO::FETCH_COLUMN);
+    ');
+    $daysStmt->execute([':uid' => uid()]);
+    $days = $daysStmt->fetchAll(PDO::FETCH_COLUMN);
 
     $streak = 0;
     if ($days) {
@@ -999,7 +1058,9 @@ function computeSessionStats(PDO $pdo): array {
  */
 function handleGetWishlist(PDO $pdo): void {
     ensureWishlistTable($pdo);
-    $rows = $pdo->query('SELECT * FROM wishlist ORDER BY added_at DESC')->fetchAll();
+    $stmt = $pdo->prepare('SELECT * FROM wishlist WHERE user_id = :uid ORDER BY added_at DESC');
+    $stmt->execute([':uid' => uid()]);
+    $rows = $stmt->fetchAll();
     echo json_encode(['success' => true, 'wishlist' => $rows]);
 }
 
@@ -1010,12 +1071,16 @@ function handleGetWishlist(PDO $pdo): void {
  */
 function handleBackup(PDO $pdo): void {
     ensureRecordsColumns($pdo);
-    $records = $pdo->query('SELECT * FROM records ORDER BY id')->fetchAll();
+    $rs = $pdo->prepare('SELECT * FROM records WHERE user_id = :uid ORDER BY id');
+    $rs->execute([':uid' => uid()]);
+    $records = $rs->fetchAll();
 
     $wishlist = [];
     try {
         ensureWishlistTable($pdo);
-        $wishlist = $pdo->query('SELECT * FROM wishlist ORDER BY id')->fetchAll();
+        $ws = $pdo->prepare('SELECT * FROM wishlist WHERE user_id = :uid ORDER BY id');
+        $ws->execute([':uid' => uid()]);
+        $wishlist = $ws->fetchAll();
     } catch (\Throwable $e) {
         // wishlist optional
     }
@@ -1056,8 +1121,8 @@ function handleRestore(PDO $pdo): void {
     $skippedR  = 0;
 
     $ins = $pdo->prepare('
-        INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, rating, play_count, discogs_value, tags)
-        VALUES (:artist, :album, :year, :genre, :format, :cond, :notes, :cover, :rating, :plays, :value, :tags)
+        INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, rating, play_count, discogs_value, tags, user_id)
+        VALUES (:artist, :album, :year, :genre, :format, :cond, :notes, :cover, :rating, :plays, :value, :tags, :uid)
     ');
 
     foreach ($data['records'] as $r) {
@@ -1066,7 +1131,7 @@ function handleRestore(PDO $pdo): void {
         if ($artist === '' || $album === '') { $skippedR++; continue; }
 
         $format = in_array($r['format'] ?? 'Vinyl', $validFormats, true) ? $r['format'] : 'Vinyl';
-        if (findDuplicate($pdo, $artist, $album, $format)) { $skippedR++; continue; }
+        if (findDuplicate($pdo, $artist, $album, $format, null, uid())) { $skippedR++; continue; }
 
         try {
             $ins->execute([
@@ -1082,6 +1147,7 @@ function handleRestore(PDO $pdo): void {
                 ':plays'  => isset($r['play_count']) ? (int) $r['play_count'] : 0,
                 ':value'  => (isset($r['discogs_value']) && $r['discogs_value'] !== '' && $r['discogs_value'] !== null) ? (float) $r['discogs_value'] : null,
                 ':tags'   => normalizeTags($r['tags'] ?? ''),
+                ':uid'    => uid(),
             ]);
             $importedR++;
         } catch (\Throwable $e) {
@@ -1094,8 +1160,8 @@ function handleRestore(PDO $pdo): void {
     if (!empty($data['wishlist']) && is_array($data['wishlist'])) {
         ensureWishlistTable($pdo);
         $winsStmt = $pdo->prepare('
-            INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes)
-            VALUES (:artist, :album, :format, :price, :url, :notes)
+            INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes, user_id)
+            VALUES (:artist, :album, :format, :price, :url, :notes, :uid)
         ');
         foreach ($data['wishlist'] as $w) {
             $artist = trim($w['artist'] ?? '');
@@ -1109,6 +1175,7 @@ function handleRestore(PDO $pdo): void {
                     ':price'  => (isset($w['target_price']) && $w['target_price'] !== '' && $w['target_price'] !== null) ? (float) $w['target_price'] : null,
                     ':url'    => trim($w['discogs_url'] ?? '') ?: null,
                     ':notes'  => trim($w['notes'] ?? '') ?: null,
+                    ':uid'    => uid(),
                 ]);
                 $importedW++;
             } catch (\Throwable $e) {
@@ -1160,22 +1227,22 @@ function handleWishAction(PDO $pdo, array $data): void {
                 UPDATE wishlist SET
                     artist = :artist, album = :album, format = :format,
                     target_price = :price, discogs_url = :url, notes = :notes
-                WHERE id = :id
+                WHERE id = :id AND user_id = :uid
             ');
             $stmt->execute([
                 ':artist' => $artist, ':album' => $album, ':format' => $format,
                 ':price' => $targetPrice, ':url' => $discogsUrl, ':notes' => $notes,
-                ':id' => $wishId,
+                ':id' => $wishId, ':uid' => uid(),
             ]);
             echo json_encode(['success' => true, 'message' => 'Wishlist item updated.']);
         } else {
             $stmt = $pdo->prepare('
-                INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes)
-                VALUES (:artist, :album, :format, :price, :url, :notes)
+                INSERT INTO wishlist (artist, album, format, target_price, discogs_url, notes, user_id)
+                VALUES (:artist, :album, :format, :price, :url, :notes, :uid)
             ');
             $stmt->execute([
                 ':artist' => $artist, ':album' => $album, ':format' => $format,
-                ':price' => $targetPrice, ':url' => $discogsUrl, ':notes' => $notes,
+                ':price' => $targetPrice, ':url' => $discogsUrl, ':notes' => $notes, ':uid' => uid(),
             ]);
             echo json_encode(['success' => true, 'id' => (int) $pdo->lastInsertId(), 'message' => 'Added to wishlist.']);
         }
@@ -1184,8 +1251,8 @@ function handleWishAction(PDO $pdo, array $data): void {
 
     if ($action === 'purchase') {
         $wishId = (int) ($data['wish_id'] ?? 0);
-        $stmt = $pdo->prepare('SELECT * FROM wishlist WHERE id = :id');
-        $stmt->execute([':id' => $wishId]);
+        $stmt = $pdo->prepare('SELECT * FROM wishlist WHERE id = :id AND user_id = :uid');
+        $stmt->execute([':id' => $wishId, ':uid' => uid()]);
         $wish = $stmt->fetch();
         if (!$wish) {
             http_response_code(404);
@@ -1194,16 +1261,17 @@ function handleWishAction(PDO $pdo, array $data): void {
         }
 
         $pdo->prepare('
-            INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url)
-            VALUES (:artist, :album, NULL, \'\', :format, \'\', :notes, \'\')
+            INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, user_id)
+            VALUES (:artist, :album, NULL, \'\', :format, \'\', :notes, \'\', :uid)
         ')->execute([
             ':artist' => $wish['artist'],
             ':album'  => $wish['album'],
             ':format' => $wish['format'] ?: 'Vinyl',
             ':notes'  => $wish['notes'] ?? '',
+            ':uid'    => uid(),
         ]);
 
-        $pdo->prepare('DELETE FROM wishlist WHERE id = :id')->execute([':id' => $wishId]);
+        $pdo->prepare('DELETE FROM wishlist WHERE id = :id AND user_id = :uid')->execute([':id' => $wishId, ':uid' => uid()]);
         echo json_encode(['success' => true, 'message' => 'Moved to collection.']);
         return;
     }
@@ -1224,7 +1292,7 @@ function handleDeleteWish(PDO $pdo, int $wishId): void {
         echo json_encode(['success' => false, 'message' => 'A valid wish_id is required.']);
         return;
     }
-    $pdo->prepare('DELETE FROM wishlist WHERE id = :id')->execute([':id' => $wishId]);
+    $pdo->prepare('DELETE FROM wishlist WHERE id = :id AND user_id = :uid')->execute([':id' => $wishId, ':uid' => uid()]);
     echo json_encode(['success' => true, 'message' => 'Removed from wishlist.']);
 }
 
@@ -1508,8 +1576,8 @@ function handleCsvImport(PDO $pdo): void {
     $errors   = [];
 
     $stmt = $pdo->prepare('
-        INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url)
-        VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url)
+        INSERT INTO records (artist, album, year, genre, format, condition_grade, notes, cover_url, user_id)
+        VALUES (:artist, :album, :year, :genre, :format, :condition_grade, :notes, :cover_url, :user_id)
     ');
 
     foreach ($rows as $i => $row) {
@@ -1529,7 +1597,7 @@ function handleCsvImport(PDO $pdo): void {
             $format = 'Vinyl';
         }
 
-        $dup = findDuplicate($pdo, $artist, $album, $format);
+        $dup = findDuplicate($pdo, $artist, $album, $format, null, uid());
         if ($dup) {
             $skipped++;
             $errors[] = "Row $lineNum: duplicate of existing record #{$dup['id']} ({$dup['artist']} — {$dup['album']}, {$dup['format']}).";
@@ -1554,6 +1622,7 @@ function handleCsvImport(PDO $pdo): void {
                 ':condition_grade' => trim($row['condition_grade'] ?? '') ?: 'Mint (M)',
                 ':notes'           => trim($row['notes'] ?? ''),
                 ':cover_url'       => trim($row['cover_url'] ?? ''),
+                ':user_id'         => uid(),
             ]);
             $imported++;
         } catch (PDOException $e) {
@@ -1805,17 +1874,23 @@ function handleFetchLyricsFromWeb(): void {
 }
 
 function handleStats(PDO $pdo): void {
-    $total      = $pdo->query('SELECT COUNT(*) FROM records')->fetchColumn();
-    $byGenre    = $pdo->query('SELECT genre, COUNT(*) as count FROM records WHERE genre != "" GROUP BY genre ORDER BY count DESC')->fetchAll();
-    $byFormat   = $pdo->query('SELECT format, COUNT(*) as count FROM records GROUP BY format ORDER BY count DESC')->fetchAll();
-    $byDecade   = $pdo->query('SELECT FLOOR(year/10)*10 AS decade, COUNT(*) as count FROM records WHERE year IS NOT NULL GROUP BY decade ORDER BY decade')->fetchAll();
-    $latest     = $pdo->query('SELECT artist, album, date_added FROM records ORDER BY date_added DESC LIMIT 5')->fetchAll();
+    $uid = uid();
+    $q = function (string $sql) use ($pdo, $uid) {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':uid' => $uid]);
+        return $stmt;
+    };
+    $total      = $q('SELECT COUNT(*) FROM records WHERE user_id = :uid')->fetchColumn();
+    $byGenre    = $q('SELECT genre, COUNT(*) as count FROM records WHERE user_id = :uid AND genre != "" GROUP BY genre ORDER BY count DESC')->fetchAll();
+    $byFormat   = $q('SELECT format, COUNT(*) as count FROM records WHERE user_id = :uid GROUP BY format ORDER BY count DESC')->fetchAll();
+    $byDecade   = $q('SELECT FLOOR(year/10)*10 AS decade, COUNT(*) as count FROM records WHERE user_id = :uid AND year IS NOT NULL GROUP BY decade ORDER BY decade')->fetchAll();
+    $latest     = $q('SELECT artist, album, date_added FROM records WHERE user_id = :uid ORDER BY date_added DESC LIMIT 5')->fetchAll();
 
     // Aggregate Discogs valuation data from cache
     $valuation = null;
     try {
         ensureDiscogsCacheTable($pdo);
-        $valRow = $pdo->query('
+        $vStmt = $pdo->prepare('
             SELECT COUNT(*) AS priced,
                    SUM(lowest_price)  AS total_value,
                    MIN(lowest_price)  AS min_price,
@@ -1823,8 +1898,10 @@ function handleStats(PDO $pdo): void {
                    AVG(lowest_price)  AS avg_price
             FROM discogs_cache
             WHERE lowest_price IS NOT NULL AND lowest_price > 0
-              AND record_id IN (SELECT id FROM records)
-        ')->fetch();
+              AND record_id IN (SELECT id FROM records WHERE user_id = :uid)
+        ');
+        $vStmt->execute([':uid' => $uid]);
+        $valRow = $vStmt->fetch();
 
         if ($valRow && (int) $valRow['priced'] > 0) {
             $valuation = [
@@ -1884,7 +1961,17 @@ function checkDiscogsRateLimit(): bool {
     return true;
 }
 
-function getDiscogsToken(): string {
+function getDiscogsToken(PDO $pdo): string {
+    // A per-user token (stored in the users table) takes precedence
+    try {
+        $stmt = $pdo->prepare('SELECT discogs_token FROM users WHERE id = :id');
+        $stmt->execute([':id' => uid()]);
+        $tok = trim((string) $stmt->fetchColumn());
+        if ($tok !== '') return $tok;
+    } catch (\Throwable $e) {
+        // column may not exist yet — fall through to server-wide token
+    }
+
     $env = getenv('DISCOGS_TOKEN');
     if ($env !== false && $env !== '') {
         return trim($env);
@@ -1940,8 +2027,8 @@ function handleDiscogsValue(PDO $pdo): void {
     try {
 
     // Get the record
-    $stmt = $pdo->prepare('SELECT id, artist, album, year, format FROM records WHERE id = :id');
-    $stmt->execute([':id' => $recordId]);
+    $stmt = $pdo->prepare('SELECT id, artist, album, year, format FROM records WHERE id = :id AND user_id = :uid');
+    $stmt->execute([':id' => $recordId, ':uid' => uid()]);
     $record = $stmt->fetch();
     if (!$record) {
         http_response_code(404);
@@ -1989,7 +2076,7 @@ function handleDiscogsValue(PDO $pdo): void {
     }
 
     // Query Discogs API
-    $token = getDiscogsToken();
+    $token = getDiscogsToken($pdo);
     $headers = ['User-Agent: MyRecordsCollection/1.0 +https://mimetime.com'];
     if ($token !== '') {
         $headers[] = 'Authorization: Discogs token=' . $token;
@@ -2238,16 +2325,17 @@ function handleDiscogsValuateAll(PDO $pdo): void {
     ensureDiscogsCacheTable($pdo);
 
     // Get records that don't have fresh cache entries
-    $stmt = $pdo->query('
+    $stmt = $pdo->prepare('
         SELECT r.id, r.artist, r.album, r.format
         FROM records r
         LEFT JOIN discogs_cache dc ON dc.record_id = r.id AND dc.fetched_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
-        WHERE dc.id IS NULL
+        WHERE r.user_id = :uid AND dc.id IS NULL
         LIMIT 50
     ');
+    $stmt->execute([':uid' => uid()]);
     $uncached = $stmt->fetchAll();
 
-    $token = getDiscogsToken();
+    $token = getDiscogsToken($pdo);
     if ($token === '' && !empty($uncached)) {
         http_response_code(400);
         echo json_encode(['error' => 'Discogs token required for bulk valuation. Set the DISCOGS_TOKEN env var or place a token in api/discogs_token.txt']);

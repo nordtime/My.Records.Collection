@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in · My Records Collection</title>
+    <meta name="description" content="Sign in or create an account for My Records Collection.">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('rc-theme');
+                if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=20260827200000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-body">
+    <a class="skip-link" href="#auth-main">Skip to sign-in form</a>
+
+    <main class="auth-wrap" id="auth-main">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <span class="logo-icon" aria-hidden="true">&#127926;</span>
+                <h1>My Records Collection</h1>
+            </div>
+
+            <div class="auth-tabs" role="tablist" aria-label="Authentication">
+                <button class="auth-tab active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login">Sign In</button>
+                <button class="auth-tab" id="tab-register" role="tab" aria-selected="false" aria-controls="panel-register">Create Account</button>
+            </div>
+
+            <div class="auth-alert hidden" id="authAlert" role="alert" aria-live="assertive"></div>
+
+            <!-- Sign in -->
+            <form class="auth-form" id="loginForm" role="tabpanel" aria-labelledby="tab-login" novalidate>
+                <div class="form-group">
+                    <label for="login-identifier">Username or email</label>
+                    <input type="text" id="login-identifier" class="input" autocomplete="username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" class="input" autocomplete="current-password" required>
+                </div>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="login-remember">
+                    <span>Stay signed in on this device</span>
+                </label>
+                <button type="submit" class="btn btn-primary auth-submit">Sign In</button>
+                <p class="auth-foot">
+                    <a href="#" id="forgotLink">Forgot your password?</a>
+                    &nbsp;·&nbsp;
+                    <a href="#" id="resendVerifyLink">Resend verification email</a>
+                </p>
+            </form>
+
+            <!-- Password reset request -->
+            <form class="auth-form hidden" id="resetRequestForm" novalidate>
+                <p class="auth-consent">Enter your account email and we'll send a link to reset your password.</p>
+                <div class="form-group">
+                    <label for="reset-email">Email</label>
+                    <input type="email" id="reset-email" class="input" autocomplete="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="resetreq-captcha">Verification: <span id="resetCaptchaQuestion">…</span></label>
+                    <div class="captcha-row">
+                        <input type="text" id="resetreq-captcha" class="input" inputmode="numeric" autocomplete="off" required>
+                        <button type="button" class="btn btn-ghost btn-sm" id="resetCaptchaRefresh" aria-label="Get a new verification question">↻</button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary auth-submit">Send reset link</button>
+                <p class="auth-foot"><a href="#" id="backToLogin">Back to sign in</a></p>
+            </form>
+
+            <!-- Register -->
+            <form class="auth-form hidden" id="registerForm" role="tabpanel" aria-labelledby="tab-register" novalidate>
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" class="input" autocomplete="username" minlength="3" maxlength="50" required
+                        aria-describedby="reg-username-hint">
+                    <small id="reg-username-hint" class="form-hint">3–50 characters: letters, numbers, dot, underscore, hyphen.</small>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" class="input" autocomplete="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <input type="password" id="reg-password" class="input" autocomplete="new-password" minlength="8" required
+                        aria-describedby="reg-password-hint">
+                    <small id="reg-password-hint" class="form-hint">At least 8 characters, including a letter and a number.</small>
+                </div>
+                <div class="form-group">
+                    <label for="reg-confirm">Confirm password</label>
+                    <input type="password" id="reg-confirm" class="input" autocomplete="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-captcha">Verification: <span id="captchaQuestion">…</span></label>
+                    <div class="captcha-row">
+                        <input type="text" id="reg-captcha" class="input" inputmode="numeric" autocomplete="off" required
+                            aria-describedby="captcha-hint">
+                        <button type="button" class="btn btn-ghost btn-sm" id="captchaRefresh" aria-label="Get a new verification question">↻</button>
+                    </div>
+                    <small id="captcha-hint" class="form-hint">Answer the simple math question to prove you're human.</small>
+                </div>
+                <p class="auth-consent">
+                    By creating an account you agree to the
+                    <a href="#" id="disclaimerLink">data &amp; usage disclaimer</a>.
+                </p>
+                <button type="submit" class="btn btn-primary auth-submit">Create Account</button>
+            </form>
+
+            <p class="auth-foot" id="regNote"></p>
+        </div>
+
+        <p class="auth-legal">
+            <a href="help.html">Help</a> ·
+            <a href="#" id="disclaimerLink2">Disclaimer</a> ·
+            Open source (MIT) · Data dedicated under CC0 1.0
+        </p>
+    </main>
+
+    <!-- Disclaimer modal -->
+    <div class="modal-overlay hidden" id="disclaimerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Data &amp; Usage Disclaimer</h2>
+                <button class="btn-close modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="disclaimerBody"></div>
+        </div>
+    </div>
+
+    <script src="js/theme.js?v=20260827170000"></script>
+    <script src="js/legal.js?v=20260827170000"></script>
+    <script src="js/login.js?v=20260827200000"></script>
+</body>
+</html>

@@ -6,13 +6,20 @@ A personal music collection manager for Vinyl, CD, Cassette, and Digital records
 
 ## Features
 
+- **Accounts & authentication** — self-service sign-up with email verification, sign-in, password reset, change-password and change-email (with re-verification), and per-user data ownership. The first account becomes the administrator.
+- **Admin user management** — approve, disable, promote, delete users, resend verification, and toggle open registration.
+- **Security** — hardened PHP sessions, CSRF protection on state-changing requests, a built-in math captcha, and login rate-limiting.
 - **Browse & search** — filter by genre, year, and format; sort by artist, album, year, genre, or date added
 - **CRUD** — add, edit, and delete records with a modal form
 - **Multi-select delete** — bulk remove records from the grid
+- **Ratings, tags & wishlist** — rate records, tag them, and track wanted releases
+- **Listening sessions** — log plays and see listening history
 - **Cover art** — fetched automatically from MusicBrainz / Cover Art Archive and cached locally in `/covers/`
 - **Track lookup** — pull track listings from MusicBrainz
-- **Discogs valuation** — look up or bulk-value records via the Discogs Marketplace API
-- **Statistics** — collection breakdown by genre, format, and decade
+- **Discogs valuation** — look up or bulk-value records via the Discogs Marketplace API using a per-user token
+- **Statistics & dashboard** — collection breakdown by genre, format, and decade
+- **Backup & restore** — export/import your collection as JSON
+- **Light / dark theme** — with a system-follow option
 - **CSV import** — bulk-import records from a CSV file with a preview step
 - **Lyrics viewer** — `lyrics.html` for looking up song lyrics
 
@@ -34,21 +41,31 @@ A personal music collection manager for Vinyl, CD, Cassette, and Digital records
 ## Project Structure
 
 ```
-├── index.html          # Main SPA shell
+├── index.html          # Main SPA shell (gated behind sign-in)
+├── login.html          # Sign in / create account
+├── verify.html         # Email verification landing page
+├── reset.html          # Password reset landing page
 ├── lyrics.html         # Lyrics viewer
+├── help.html           # Help & how-to
 ├── web.config          # IIS / FastCGI configuration
 ├── css/
 │   └── style.css
 ├── js/
 │   ├── app.js          # Collection UI & API client
-│   └── lyrics.js       # Lyrics page logic
+│   ├── auth-client.js  # Session gating, CSRF, account menu & settings
+│   ├── login.js        # Login / registration page logic
+│   ├── admin.js        # Admin user-management panel
+│   └── ...             # Feature modules (theme, dashboard, wishlist, etc.)
 ├── api/
 │   ├── api.php         # REST CRUD + stats + Discogs endpoints
+│   ├── auth.php        # Authentication & account endpoints
+│   ├── auth_lib.php    # Auth/session/CSRF/captcha helpers & schema setup
 │   ├── cover.php       # Cover art cache proxy
-│   ├── db.php          # PDO connection (singleton)
-│   └── discogs_token.txt  # Your Discogs personal access token
+│   └── db.php          # PDO connection (singleton)
 └── covers/             # Cached cover art (auto-created)
 ```
+
+> **Note:** `api/discogs_token.txt` and `*.log` are intentionally **git-ignored** — never commit secrets.
 
 ---
 
@@ -104,11 +121,9 @@ The database connection is configured entirely through environment variables (se
 
 ### 3. Discogs Token
 
-Place your [Discogs personal access token](https://www.discogs.com/settings/developers) in:
+Each signed-in user can save their own [Discogs personal access token](https://www.discogs.com/settings/developers) from **Account → Settings** in the app; it is stored on their account.
 
-```
-api/discogs_token.txt
-```
+For a server-wide fallback token, set the `DISCOGS_TOKEN` environment variable (preferred) or place a token in `api/discogs_token.txt`. **This file is git-ignored and must never be committed** — treat any token that lands in version control as compromised and regenerate it.
 
 ### 4. Covers Directory
 
@@ -146,8 +161,10 @@ All endpoints are served by `api/api.php`.
 
 Cover art endpoint: `GET api/cover.php?artist=...&album=...`
 
+Authentication & account actions are served by `api/auth.php` (e.g. `register`, `login`, `logout`, `verify_email`, `resend_verification`, `request_reset`, `reset_password`, `change_password`, `change_email`, plus admin user-management actions). State-changing requests require a CSRF token.
+
 ---
 
 ## License
 
-Personal / private use. No license — all rights reserved.
+Code is released under the MIT License; collection data is dedicated to the public domain under CC0 1.0. (Add a `LICENSE` file to formalize this.)

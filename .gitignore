@@ -1,0 +1,18 @@
+# Secrets & credentials — never commit these
+api/discogs_token.txt
+.env
+*.env
+
+# Logs
+*.log
+api/auth_debug.log
+
+# Cached cover art (auto-generated)
+covers/*
+!covers/.gitkeep
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+.vscode/
+*.swp

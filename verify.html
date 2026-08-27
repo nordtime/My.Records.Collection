@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify email · My Records Collection</title>
+    <script>
+        (function () { try { var t = localStorage.getItem('rc-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=20260827180000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-body">
+    <main class="auth-wrap">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <span class="logo-icon" aria-hidden="true">&#127926;</span>
+                <h1>My Records Collection</h1>
+            </div>
+            <div class="auth-alert" id="verifyStatus" role="status" aria-live="polite">Verifying your email…</div>
+            <p class="auth-foot"><a href="login.html" id="toLogin">Continue to sign in</a></p>
+        </div>
+    </main>
+    <script>
+        (function () {
+            var status = document.getElementById('verifyStatus');
+            var params = new URLSearchParams(location.search);
+            var token = params.get('token') || '';
+            if (!token) {
+                status.className = 'auth-alert auth-alert-error';
+                status.textContent = 'No verification token found in the link.';
+                return;
+            }
+            fetch('api/auth.php', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+                body: JSON.stringify({ action: 'verify_email', token: token })
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                status.className = 'auth-alert ' + (d.success ? 'auth-alert-success' : 'auth-alert-error');
+                status.textContent = d.message || (d.success ? 'Email verified.' : 'Verification failed.');
+            }).catch(function () {
+                status.className = 'auth-alert auth-alert-error';
+                status.textContent = 'Network error. Please try again.';
+            });
+        })();
+    </script>
+</body>
+</html>

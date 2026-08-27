@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help &amp; How-to · My Records Collection</title>
+    <meta name="description" content="How to use My Records Collection: accounts, adding records, tags, wishlist, backups and more.">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('rc-theme');
+                if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=20260827170000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <a class="skip-link" href="#help-main">Skip to help content</a>
+    <main class="help-wrap" id="help-main">
+        <a class="help-back" href="index.html">&larr; Back to my collection</a>
+        <h1>Help &amp; How-to</h1>
+        <p>Welcome! My Records Collection is a private catalog for your Vinyl, CD, Cassette, and
+        Digital records. Here's everything you need to get started.</p>
+
+        <h2>1. Your account</h2>
+        <ul>
+            <li><strong>Create an account</strong> on the sign-in page. The first account created
+                becomes the administrator.</li>
+            <li>Your collection is <strong>private to you</strong> — other users cannot see it.</li>
+            <li>Open the <strong>account menu</strong> (top-right, your name) to sign out, view the
+                disclaimer, or delete your account.</li>
+        </ul>
+
+        <h2>2. Adding records</h2>
+        <ol>
+            <li>Click <strong>+ Add Record</strong>.</li>
+            <li>Enter the artist and album (required). Use <strong>🔍 Lookup Info</strong> to auto-fill
+                year, genre, and cover art from MusicBrainz, iTunes, or Deezer.</li>
+            <li>Optionally set the format, condition, notes, and <strong>tags/shelves</strong>.</li>
+            <li>Click <strong>Save Record</strong>.</li>
+        </ol>
+        <p>You can also <strong>Import CSV</strong> from the <strong>Data ▾</strong> menu to add many
+        records at once.</p>
+
+        <h2>3. Browsing &amp; finding</h2>
+        <ul>
+            <li>Search by artist, album, or notes, and filter by genre, year, or format.</li>
+            <li>Switch between <strong>Grid</strong> and <strong>List</strong> views.</li>
+            <li>Click <strong>🎲 Surprise Me</strong> to pick a random record to play.</li>
+            <li>Click a card to open the full detail view with track list, ratings, and history.</li>
+        </ul>
+
+        <h2>4. Ratings, plays &amp; tags</h2>
+        <ul>
+            <li>Rate a record 1–5 stars from its detail view.</li>
+            <li>Click <strong>💿 Mark as played</strong> on a card (or "Mark as Played" in the detail
+                view) to log a listen — this feeds your <strong>History</strong> and streaks.</li>
+            <li>Add <strong>tags/shelves</strong> (e.g. <em>favorites</em>, <em>to sell</em>) to group
+                records. Click a tag chip to filter by it.</li>
+        </ul>
+
+        <h2>5. Wishlist &amp; history</h2>
+        <ul>
+            <li><strong>💝 Wishlist</strong> tracks records you want to buy, with target prices.</li>
+            <li><strong>📻 History</strong> shows what you've played, with stats and streaks.</li>
+        </ul>
+
+        <h2>6. Backups &amp; your data</h2>
+        <ul>
+            <li>From <strong>Data ▾</strong>, choose <strong>Backup</strong> to download a full JSON copy
+                of your collection, or <strong>Restore</strong> to import one (duplicates are skipped).</li>
+            <li>Keep your own backups — see the <a href="#" id="helpDisclaimer">data &amp; usage disclaimer</a>.</li>
+        </ul>
+
+        <h2>7. Appearance</h2>
+        <ul>
+            <li>Use the <strong>🖥️ Theme</strong> menu to choose Light, Dark, or System (follows your
+                device setting).</li>
+        </ul>
+
+        <h2>8. Administrators</h2>
+        <ul>
+            <li>Admins get <strong>👥 User management</strong> in the account menu to approve pending
+                sign-ups, enable/disable users, change roles, and delete users (which purges their data).</li>
+            <li>Toggle <strong>open self-registration</strong> there once you're ready to let anyone sign up.</li>
+        </ul>
+
+        <h2>9. Deleting your account</h2>
+        <p>Account menu → <strong>Delete my account</strong>. This permanently removes your account and
+        all of your data. Back up first if you want to keep a copy.</p>
+
+        <p style="margin-top:2rem;"><a class="help-back" href="index.html">&larr; Back to my collection</a></p>
+    </main>
+
+    <!-- Disclaimer modal -->
+    <div class="modal-overlay hidden" id="disclaimerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Data &amp; Usage Disclaimer</h2>
+                <button class="btn-close modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body" id="disclaimerBody"></div>
+        </div>
+    </div>
+
+    <script src="js/theme.js?v=20260827170000"></script>
+    <script src="js/legal.js?v=20260827170000"></script>
+    <script>
+        (function () {
+            var link = document.getElementById('helpDisclaimer');
+            var modal = document.getElementById('disclaimerModal');
+            if (link) link.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.getElementById('disclaimerBody').innerHTML = window.RC_DISCLAIMER_HTML || '';
+                modal.classList.remove('hidden');
+            });
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal || e.target.classList.contains('modal-close')) modal.classList.add('hidden');
+            });
+        })();
+    </script>
+</body>
+</html>

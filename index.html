@@ -15,7 +15,7 @@
             } catch (e) {}
         })();
     </script>
-    <link rel="stylesheet" href="css/style.css?v=20260827160000">
+    <link rel="stylesheet" href="css/style.css?v=20260827200000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -324,13 +324,18 @@
     <div class="toast hidden" id="toast"></div>
 
     <footer class="app-footer">
-        <p>&copy; 2026 My Records Collection</p>
+        <p>&copy; 2026 My Records Collection · <a href="help.html">Help</a> · <a href="#" id="footerDisclaimer">Disclaimer</a> · MIT &amp; CC0</p>
     </footer>
 
     <!-- External libraries -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    
+
+    <!-- Auth (must load first: installs session gate + CSRF) -->
+    <script src="js/legal.js?v=20260827170000"></script>
+    <script src="js/auth-client.js?v=20260827200000"></script>
+    <script src="js/admin.js?v=20260827190000"></script>
+
     <!-- Priority 1 modules -->
     <script src="js/theme.js?v=20260827130000"></script>
     <script src="js/dashboard.js?v=20260827140000"></script>

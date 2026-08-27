@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset password · My Records Collection</title>
+    <script>
+        (function () { try { var t = localStorage.getItem('rc-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+    </script>
+    <link rel="stylesheet" href="css/style.css?v=20260827180000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-body">
+    <main class="auth-wrap">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <span class="logo-icon" aria-hidden="true">&#127926;</span>
+                <h1>Reset your password</h1>
+            </div>
+            <div class="auth-alert hidden" id="resetAlert" role="alert" aria-live="assertive"></div>
+            <form class="auth-form" id="resetForm" novalidate>
+                <div class="form-group">
+                    <label for="reset-password">New password</label>
+                    <input type="password" id="reset-password" class="input" autocomplete="new-password" minlength="8" required
+                        aria-describedby="reset-hint">
+                    <small id="reset-hint" class="form-hint">At least 8 characters, including a letter and a number.</small>
+                </div>
+                <div class="form-group">
+                    <label for="reset-confirm">Confirm new password</label>
+                    <input type="password" id="reset-confirm" class="input" autocomplete="new-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary auth-submit">Set new password</button>
+            </form>
+            <p class="auth-foot"><a href="login.html">Back to sign in</a></p>
+        </div>
+    </main>
+    <script>
+        (function () {
+            var alertBox = document.getElementById('resetAlert');
+            var form = document.getElementById('resetForm');
+            var token = new URLSearchParams(location.search).get('token') || '';
+
+            function showAlert(msg, ok) {
+                alertBox.textContent = msg;
+                alertBox.className = 'auth-alert ' + (ok ? 'auth-alert-success' : 'auth-alert-error');
+                alertBox.classList.remove('hidden');
+            }
+            if (!token) {
+                showAlert('This reset link is missing its token.', false);
+                form.querySelector('.auth-submit').disabled = true;
+            }
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var pw = document.getElementById('reset-password').value;
+                var confirm = document.getElementById('reset-confirm').value;
+                if (pw !== confirm) { showAlert('Passwords do not match.', false); return; }
+                var btn = form.querySelector('.auth-submit');
+                btn.disabled = true;
+                fetch('api/auth.php', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+                    body: JSON.stringify({ action: 'reset_password', token: token, password: pw })
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (d.success) {
+                        showAlert(d.message + ' Redirecting to sign in…', true);
+                        setTimeout(function () { location.href = 'login.html'; }, 1800);
+                    } else {
+                        showAlert(d.message || 'Could not reset password.', false);
+                        btn.disabled = false;
+                    }
+                }).catch(function () { showAlert('Network error. Please try again.', false); btn.disabled = false; });
+            });
+        })();
+    </script>
+</body>
+</html>
