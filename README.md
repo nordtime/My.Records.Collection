@@ -22,7 +22,7 @@ A personal music collection manager for Vinyl, CD, Cassette, and Digital records
 - **Backup & restore** — export/import your collection as JSON
 - **Light / dark theme** — with a system-follow option
 - **CSV import** — bulk-import records from a CSV file with a preview step
-- **Lyrics viewer** — `lyrics.html` for looking up song lyrics
+- **Inline lyrics** — view lyrics for any track directly in the track list (fetched from the web and saved automatically)
 
 ---
 
@@ -46,7 +46,6 @@ A personal music collection manager for Vinyl, CD, Cassette, and Digital records
 ├── login.html          # Sign in / create account
 ├── verify.html         # Email verification landing page
 ├── reset.html          # Password reset landing page
-├── lyrics.html         # Lyrics viewer
 ├── help.html           # Help & how-to
 ├── web.config          # IIS / FastCGI configuration
 ├── css/

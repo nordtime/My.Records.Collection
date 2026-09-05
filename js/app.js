@@ -871,18 +871,17 @@
             html += '<div class="tracklist-table-wrap"><table class="tracklist-table">';
             html += '<thead><tr><th class="tl-num">#</th><th>Title</th><th class="tl-dur">Duration</th><th class="tl-lyrics">Lyrics</th></tr></thead><tbody>';
 
-            data.tracks.forEach(t => {
+            data.tracks.forEach((t, i) => {
                 if (hasMultiDisc && t.disc !== currentDisc) {
                     currentDisc = t.disc;
                     const discLabel = t.disc_title ? `Disc ${t.disc}: ${escHtml(t.disc_title)}` : `Disc ${t.disc}`;
                     html += `<tr class="disc-divider"><td colspan="4">${discLabel}</td></tr>`;
                 }
-                const lyricsUrl = `lyrics.html?artist=${encodeURIComponent(data.artist)}&album=${encodeURIComponent(data.album)}&title=${encodeURIComponent(t.title)}`;
                 html += `<tr>`;
                 html += `<td class="tl-num">${escHtml(String(t.position))}</td>`;
                 html += `<td>${escHtml(t.title)}</td>`;
                 html += `<td class="tl-dur">${t.duration || '—'}</td>`;
-                html += `<td class="tl-lyrics"><a href="${lyricsUrl}" target="_blank" class="lyrics-link" title="View lyrics">&#127908;</a></td>`;
+                html += `<td class="tl-lyrics"><button type="button" class="lyrics-link lyrics-toggle" data-track="${i}" title="View lyrics" aria-label="View lyrics" aria-expanded="false">&#127908;</button></td>`;
                 html += `</tr>`;
             });
 
@@ -897,9 +896,110 @@
                     this.style.display = 'none';
                 });
             }
+
+            // Inline lyrics — toggle a panel under the track (CSP-compliant)
+            $body.querySelectorAll('.lyrics-toggle').forEach(btn => {
+                btn.addEventListener('click', () => toggleInlineLyrics(btn, data));
+            });
         } catch {
             $body.innerHTML = '<p class="loading">Failed to load track list.</p>';
         }
+    }
+
+    // ── Inline lyrics (inside the tracklist modal) ──────────
+    function toggleInlineLyrics(btn, data) {
+        const track = data.tracks[Number(btn.dataset.track)];
+        if (!track) return;
+
+        const row = btn.closest('tr');
+        const next = row.nextElementSibling;
+
+        // Already loaded → just show/hide it
+        if (next && next.classList.contains('lyrics-row')) {
+            const hidden = next.classList.toggle('hidden');
+            btn.classList.toggle('active', !hidden);
+            btn.setAttribute('aria-expanded', String(!hidden));
+            return;
+        }
+
+        const panelRow = document.createElement('tr');
+        panelRow.className = 'lyrics-row';
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        const panel = document.createElement('div');
+        panel.className = 'lyrics-panel';
+        panel.innerHTML = '<div class="lyrics-panel-status">Loading lyrics…</div>';
+        cell.appendChild(panel);
+        panelRow.appendChild(cell);
+        row.after(panelRow);
+        btn.classList.add('active');
+        btn.setAttribute('aria-expanded', 'true');
+
+        loadInlineLyrics(panel, data.artist, data.album, track.title);
+    }
+
+    async function loadInlineLyrics(panel, artist, album, title) {
+        try {
+            const p = new URLSearchParams({ lyrics: '1', artist, album, title });
+            const res = await fetch(`${API}?${p}`);
+            const d = await res.json();
+            if (d.lyrics) {
+                showInlineLyrics(panel, d.lyrics);
+            } else {
+                showInlineLyricsFetch(panel, artist, album, title);
+            }
+        } catch {
+            panel.innerHTML = '<div class="lyrics-panel-status error">Failed to load lyrics.</div>';
+        }
+    }
+
+    function showInlineLyrics(panel, lyrics) {
+        panel.innerHTML = '';
+        const pre = document.createElement('pre');
+        pre.className = 'lyrics-panel-text';
+        pre.textContent = lyrics;
+        panel.appendChild(pre);
+    }
+
+    function showInlineLyricsFetch(panel, artist, album, title) {
+        panel.innerHTML = '';
+        const msg = document.createElement('div');
+        msg.className = 'lyrics-panel-status';
+        msg.textContent = 'No lyrics saved yet.';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-primary btn-sm';
+        btn.innerHTML = '&#127760; Fetch from web';
+        btn.addEventListener('click', async () => {
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.textContent = '⏳ Searching…';
+            try {
+                const p = new URLSearchParams({ lyrics: '1', fetch: '1', artist, album, title });
+                const res = await fetch(`${API}?${p}`);
+                const d = await res.json();
+                if (d.lyrics) {
+                    // Persist so it loads instantly next time
+                    fetch(`${API}?lyrics=1`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ artist, album, title, lyrics: d.lyrics }),
+                    }).catch(() => {});
+                    showInlineLyrics(panel, d.lyrics);
+                    showToast(`Lyrics found via ${d.source || 'web'} ✓`, 'success');
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = orig;
+                    showToast('No lyrics found online for this song.', 'error');
+                }
+            } catch {
+                btn.disabled = false;
+                btn.innerHTML = orig;
+                showToast('Failed to fetch lyrics from web.', 'error');
+            }
+        });
+        panel.appendChild(msg);
+        panel.appendChild(btn);
     }
 
     // ── Save (Create / Update) ──────────────────────────────
