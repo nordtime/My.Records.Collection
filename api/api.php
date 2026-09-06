@@ -456,17 +456,26 @@ try {
             $stmt = $pdo->prepare('DELETE FROM records WHERE id = :id AND user_id = :uid');
             $stmt->execute([':id' => $id, ':uid' => uid()]);
 
-            // Delete matching track_cache entry
+            // Remove shared metadata only when no remaining record needs it.
             $cacheKey = mb_strtolower(trim($record['artist']) . '||' . trim($record['album']));
-            $stmt = $pdo->prepare('DELETE FROM track_cache WHERE cache_key = :key');
-            $stmt->execute([':key' => $cacheKey]);
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM records WHERE LOWER(artist) = LOWER(:artist) AND LOWER(album) = LOWER(:album)');
+            $stmt->execute([':artist' => $record['artist'], ':album' => $record['album']]);
+            if ((int) $stmt->fetchColumn() === 0) {
+                $stmt = $pdo->prepare('DELETE FROM track_cache WHERE cache_key = :key');
+                $stmt->execute([':key' => $cacheKey]);
+            }
 
-            // Delete cached cover art file (safe: only within covers/ directory)
+            // Delete cached artwork only after its final database reference is gone.
             if (!empty($record['cover_url'])) {
-                $coverPath = realpath(__DIR__ . '/../' . $record['cover_url']);
-                $coversReal = realpath(__DIR__ . '/../covers');
-                if ($coverPath && $coversReal && str_starts_with($coverPath, $coversReal) && is_file($coverPath)) {
-                    @unlink($coverPath);
+                $stmt = $pdo->prepare('SELECT COUNT(*) FROM records WHERE cover_url = :url');
+                $stmt->execute([':url' => $record['cover_url']]);
+                if ((int) $stmt->fetchColumn() === 0) {
+                    $coverPath = realpath(__DIR__ . '/../' . $record['cover_url']);
+                    $coversReal = realpath(__DIR__ . '/../covers');
+                    $coversPrefix = $coversReal ? rtrim($coversReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : null;
+                    if ($coverPath && $coversPrefix && str_starts_with($coverPath, $coversPrefix) && is_file($coverPath)) {
+                        @unlink($coverPath);
+                    }
                 }
             }
 
