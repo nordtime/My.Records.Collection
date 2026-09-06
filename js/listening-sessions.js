@@ -6,6 +6,12 @@
 (function() {
     'use strict';
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[character]));
+    }
+
     const ListeningSessions = {
         /**
          * Initialize listening sessions
@@ -215,14 +221,14 @@
                     </div>
                     <div class="timeline-items">
                         ${daySessions.map(session => `
-                            <div class="timeline-item" data-record-id="${session.record_id}">
+                            <div class="timeline-item" data-record-id="${Number(session.record_id)}">
                                 <div class="timeline-time">${this.formatTime(session.played_at)}</div>
                                 <div class="timeline-record">
-                                    <div class="timeline-album">${session.album}</div>
-                                    <div class="timeline-artist">${session.artist}</div>
+                                    <div class="timeline-album">${escapeHtml(session.album)}</div>
+                                    <div class="timeline-artist">${escapeHtml(session.artist)}</div>
                                 </div>
                                 <div class="timeline-format">
-                                    <span class="badge">${session.format}</span>
+                                    <span class="badge">${escapeHtml(session.format)}</span>
                                 </div>
                             </div>
                         `).join('')}

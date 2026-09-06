@@ -13,12 +13,13 @@
  * GET    /api/api.php?lookup=1     — Lookup record info from MusicBrainz
  * GET    /api/api.php?tracks=1     — Fetch track list from MusicBrainz
  * GET    /api/api.php?discogs=value&id=N — Fetch Discogs marketplace value
- * GET    /api/api.php?discogs=valuate_all — Bulk-value uncached records
+ * POST   /api/api.php with {"discogs_action":"valuate_all"} — Bulk-value uncached records
  */
 
 // Suppress error display in production
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
+header_remove('X-Powered-By');
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -117,20 +118,17 @@ try {
 
             // Discogs valuation endpoint
             if (isset($_GET['discogs'])) {
+                if (in_array($_GET['discogs'], ['valuate_all', 'clear_cache'], true)) {
+                    http_response_code(405);
+                    echo json_encode(['error' => 'This Discogs operation requires a POST request.']);
+                    break;
+                }
                 if (!checkDiscogsRateLimit()) {
                     http_response_code(429);
                     echo json_encode(['error' => 'Discogs rate limit reached. Please wait a minute.']);
                     break;
                 }
-                if ($_GET['discogs'] === 'valuate_all') {
-                    handleDiscogsValuateAll($pdo);
-                } elseif ($_GET['discogs'] === 'clear_cache') {
-                    ensureDiscogsCacheTable($pdo);
-                    $pdo->exec('TRUNCATE TABLE discogs_cache');
-                    echo json_encode(['message' => 'Discogs cache cleared.']);
-                } else {
-                    handleDiscogsValue($pdo);
-                }
+                handleDiscogsValue($pdo);
                 break;
             }
 
@@ -248,6 +246,21 @@ try {
             if (!$data) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid JSON body.']);
+                break;
+            }
+
+            if (isset($data['discogs_action'])) {
+                if ($data['discogs_action'] === 'valuate_all') {
+                    handleDiscogsValuateAll($pdo);
+                } elseif ($data['discogs_action'] === 'clear_cache') {
+                    require_admin($pdo);
+                    ensureDiscogsCacheTable($pdo);
+                    $pdo->exec('TRUNCATE TABLE discogs_cache');
+                    echo json_encode(['success' => true, 'message' => 'Discogs cache cleared.']);
+                } else {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Unknown Discogs action.']);
+                }
                 break;
             }
 
@@ -1173,7 +1186,7 @@ function handleRestore(PDO $pdo): void {
                     ':album'  => $album,
                     ':format' => trim($w['format'] ?? 'Vinyl') ?: 'Vinyl',
                     ':price'  => (isset($w['target_price']) && $w['target_price'] !== '' && $w['target_price'] !== null) ? (float) $w['target_price'] : null,
-                    ':url'    => trim($w['discogs_url'] ?? '') ?: null,
+                    ':url'    => valid_external_url(trim($w['discogs_url'] ?? '')) ? (trim($w['discogs_url'] ?? '') ?: null) : null,
                     ':notes'  => trim($w['notes'] ?? '') ?: null,
                     ':uid'    => uid(),
                 ]);
@@ -1215,6 +1228,11 @@ function handleWishAction(PDO $pdo, array $data): void {
             ? (float) $data['target_price'] : null;
         $discogsUrl  = trim($data['discogs_url'] ?? '') ?: null;
         $notes       = trim($data['notes'] ?? '') ?: null;
+        if (!valid_external_url($discogsUrl)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Discogs URL must use http or https.']);
+            return;
+        }
 
         if ($action === 'update') {
             $wishId = (int) ($data['wish_id'] ?? 0);
@@ -1627,7 +1645,8 @@ function handleCsvImport(PDO $pdo): void {
             $imported++;
         } catch (PDOException $e) {
             $skipped++;
-            $errors[] = "Row $lineNum: " . $e->getMessage();
+            error_log('[Records API] CSV import row failed: ' . $e->getMessage());
+            $errors[] = "Row $lineNum: could not import this record.";
         }
     }
 
@@ -1648,9 +1667,9 @@ function handleCsvImport(PDO $pdo): void {
  */
 function cacheCoverUrl(string $url): string {
     $url = trim($url);
-    if ($url === '' || !preg_match('#^https?://#i', $url)) {
-        return $url; // already local or empty
-    }
+    if ($url === '') return '';
+    if (preg_match('#^covers/[a-f0-9]{32}\.jpg$#i', $url)) return $url;
+    if (!preg_match('#^https?://#i', $url)) return '';
 
     $coversDir = __DIR__ . '/../covers';
     if (!is_dir($coversDir)) {
@@ -1666,37 +1685,9 @@ function cacheCoverUrl(string $url): string {
         return $localPath;
     }
 
-    // Download the image — prefer cURL for reliable redirect handling
-    $imgData = false;
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 5,
-            CURLOPT_TIMEOUT        => 10,
-            CURLOPT_USERAGENT      => 'MyRecordsCollection/1.0',
-            CURLOPT_SSL_VERIFYPEER => true,
-        ]);
-        $imgData  = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($httpCode < 200 || $httpCode >= 300) {
-            $imgData = false;
-        }
-    } else {
-        $ctx = stream_context_create([
-            'http' => [
-                'header'           => "User-Agent: MyRecordsCollection/1.0\r\n",
-                'timeout'          => 10,
-                'follow_location'  => 1,
-                'max_redirects'    => 5,
-            ],
-        ]);
-        $imgData = @file_get_contents($url, false, $ctx);
-    }
+    $imgData = download_public_image($url);
 
-    if ($imgData !== false && strlen($imgData) > 100) {
+    if ($imgData !== false) {
         file_put_contents($localFile, $imgData);
         return $localPath;
     }
@@ -2318,7 +2309,7 @@ function pickBestFormatMatch(array $results, string $dbFormat): array {
 }
 
 /**
- * GET ?discogs=valuate_all — Fetch Discogs values for all records without cache.
+ * POST {"discogs_action":"valuate_all"} — Fetch Discogs values for all records without cache.
  * Returns summary of how many were priced.
  */
 function handleDiscogsValuateAll(PDO $pdo): void {

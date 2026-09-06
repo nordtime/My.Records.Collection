@@ -153,7 +153,7 @@ All endpoints are served by `api/api.php`.
 | GET    | `?lookup=1&artist=&album=`| Look up info via MusicBrainz       |
 | GET    | `?tracks=1&mbid=`         | Fetch track list from MusicBrainz  |
 | GET    | `?discogs=value&id=N`     | Fetch Discogs value for one record |
-| GET    | `?discogs=valuate_all`    | Bulk-value all uncached records    |
+| POST   | `{"discogs_action":"valuate_all"}` | Bulk-value all uncached records |
 | POST   | JSON body                 | Create a new record                |
 | POST   | `?import=csv`             | Bulk import from CSV               |
 | PUT    | `?id=N` + JSON body       | Update a record                    |

@@ -3925,6 +3925,31 @@ kbd {
 
 /* Admin panel */
 .admin-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+.admin-modal { max-width: min(1040px, calc(100vw - 2rem)); }
+.admin-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+.admin-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.admin-summary-item strong { color: var(--text-primary); font-size: 1.15rem; }
+.admin-summary-item span { color: var(--text-muted); font-size: 0.75rem; }
+.admin-toolbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(160px, 220px) 42px;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+.admin-toolbar .btn { min-width: 42px; padding-inline: 0; font-size: 1.2rem; }
 .admin-users-wrap { overflow-x: auto; margin-top: 1rem; }
 .admin-users { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .admin-users th, .admin-users td {
@@ -3942,6 +3967,14 @@ kbd {
 .admin-status.warn { color: var(--warning); }
 .admin-status.muted { color: var(--text-muted); }
 .admin-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.admin-actions .btn { white-space: nowrap; }
+.admin-empty { color: var(--text-muted); text-align: center !important; padding: 2rem !important; }
+
+@media (max-width: 640px) {
+    .admin-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .admin-toolbar { grid-template-columns: 1fr 42px; }
+    .admin-toolbar select { grid-column: 1 / -1; grid-row: 2; }
+}
 
 /* Help page */
 .help-wrap { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; }

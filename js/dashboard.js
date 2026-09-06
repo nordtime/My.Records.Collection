@@ -7,6 +7,12 @@
 
     const API = 'api/api.php';
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[character]));
+    }
+
     function fmtMoney(n) {
         const v = parseFloat(n) || 0;
         return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -15,11 +21,11 @@
     function card(icon, value, label, sub) {
         return `
             <div class="dash-card">
-                <div class="dash-icon">${icon}</div>
+                <div class="dash-icon">${escapeHtml(icon)}</div>
                 <div class="dash-body">
-                    <div class="dash-value">${value}</div>
-                    <div class="dash-label">${label}</div>
-                    ${sub ? `<div class="dash-sub">${sub}</div>` : ''}
+                    <div class="dash-value">${escapeHtml(value)}</div>
+                    <div class="dash-label">${escapeHtml(label)}</div>
+                    ${sub ? `<div class="dash-sub">${escapeHtml(sub)}</div>` : ''}
                 </div>
             </div>`;
     }

@@ -12,6 +12,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'auth_lib.php') {
 }
 
 define('AUTH_RATE_FILE', sys_get_temp_dir() . '/records_login_rate.json');
+define('AUTH_ACTION_RATE_FILE', sys_get_temp_dir() . '/records_auth_action_rate.json');
 define('AUTH_LOGIN_MAX', 10);       // max failed attempts
 define('AUTH_LOGIN_WINDOW', 900);   // per 15 minutes
 
@@ -155,6 +156,63 @@ function captcha_verify($answer): bool {
     unset($_SESSION['captcha_answer'], $_SESSION['captcha_time']);
     if ($expected === null || (time() - $ts) > 600) return false;
     return trim((string) $answer) !== '' && trim((string) $answer) === (string) $expected;
+}
+
+// ── Registration and email action throttling ───────────────
+
+/**
+ * Atomically consume one rate-limit attempt. Returns seconds until retry, or 0.
+ * Key material is hashed before storage so email addresses and IPs are not logged.
+ */
+function auth_action_rate_consume(string $action, string $keyMaterial, int $maxAttempts, int $window): int {
+    $handle = @fopen(AUTH_ACTION_RATE_FILE, 'c+');
+    if ($handle === false) {
+        error_log('[Auth] unable to open action rate-limit file');
+        return 0;
+    }
+    if (!flock($handle, LOCK_EX)) {
+        fclose($handle);
+        error_log('[Auth] unable to lock action rate-limit file');
+        return 0;
+    }
+
+    $now = time();
+    rewind($handle);
+    $raw = stream_get_contents($handle);
+    $data = $raw !== false ? (json_decode($raw, true) ?: []) : [];
+
+    foreach ($data as $key => $timestamps) {
+        $recent = array_values(array_filter((array) $timestamps, static fn($timestamp) => ($now - (int) $timestamp) < 86400));
+        if ($recent) $data[$key] = $recent;
+        else unset($data[$key]);
+    }
+
+    $key = hash('sha256', $action . "\0" . $keyMaterial);
+    $attempts = array_values(array_filter($data[$key] ?? [], static fn($timestamp) => ($now - (int) $timestamp) < $window));
+    $retryAfter = 0;
+    if (count($attempts) >= $maxAttempts) {
+        $retryAfter = max(1, $window - ($now - (int) min($attempts)));
+    } else {
+        $attempts[] = $now;
+        $data[$key] = $attempts;
+    }
+
+    rewind($handle);
+    ftruncate($handle, 0);
+    fwrite($handle, json_encode($data));
+    fflush($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
+    return $retryAfter;
+}
+
+function require_auth_action_rate(string $action, int $maxAttempts, int $window, ?string $keyMaterial = null): void {
+    $keyMaterial ??= $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $retryAfter = auth_action_rate_consume($action, $keyMaterial, $maxAttempts, $window);
+    if ($retryAfter > 0) {
+        header('Retry-After: ' . $retryAfter);
+        json_out(['success' => false, 'message' => 'Too many requests. Please wait before trying again.'], 429);
+    }
 }
 
 // ── Login rate limiting (per IP, file-based) ────────────────
@@ -329,6 +387,75 @@ function password_problems(string $p): array {
     return $errs;
 }
 
+function valid_external_url(?string $url): bool {
+    if ($url === null || $url === '') return true;
+    if (!filter_var($url, FILTER_VALIDATE_URL)) return false;
+    $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+    return in_array($scheme, ['http', 'https'], true);
+}
+
+/**
+ * Download an image from a public HTTP(S) host without allowing access to
+ * loopback, private, reserved, or non-web network destinations.
+ */
+function download_public_image(string $url, int $timeout = 10, int $maxBytes = 8388608): string|false {
+    if (!function_exists('curl_init') || !filter_var($url, FILTER_VALIDATE_URL)) return false;
+
+    $parts = parse_url($url);
+    $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+    $host = strtolower((string) ($parts['host'] ?? ''));
+    $port = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '' || !in_array($port, [80, 443], true)) return false;
+    if (isset($parts['user']) || isset($parts['pass']) || $host === 'localhost' || str_ends_with($host, '.local')) return false;
+
+    $addresses = [];
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $addresses[] = $host;
+    } else {
+        $records = @dns_get_record($host, DNS_A | DNS_AAAA) ?: [];
+        foreach ($records as $record) {
+            $address = $record['ip'] ?? $record['ipv6'] ?? null;
+            if ($address !== null) $addresses[] = $address;
+        }
+    }
+    if (!$addresses) return false;
+    foreach ($addresses as $address) {
+        if (!filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return false;
+    }
+
+    $resolvedAddress = $addresses[0];
+    $resolveEntry = $host . ':' . $port . ':'
+        . (str_contains($resolvedAddress, ':') ? '[' . $resolvedAddress . ']' : $resolvedAddress);
+    $body = '';
+    $tooLarge = false;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_TIMEOUT => $timeout,
+        CURLOPT_CONNECTTIMEOUT => min(5, $timeout),
+        CURLOPT_USERAGENT => 'MyRecordsCollection/1.0',
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        CURLOPT_RESOLVE => [$resolveEntry],
+        CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body, &$tooLarge, $maxBytes): int {
+            if (strlen($body) + strlen($chunk) > $maxBytes) {
+                $tooLarge = true;
+                return 0;
+            }
+            $body .= $chunk;
+            return strlen($chunk);
+        },
+    ]);
+    $ok = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($ok === false || $tooLarge || $status < 200 || $status >= 300 || strlen($body) < 100) return false;
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($body);
+    return in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true) ? $body : false;
+}
+
 // ── Email ────────────────────────────────────────────────────
 
 define('MAIL_FROM', 'noreply@mime-time.com');
@@ -352,7 +479,10 @@ function app_base_url(): string {
  * Returns true on success.
  */
 function send_app_mail(string $to, string $subject, string $html): bool {
-    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        error_log('[Auth] mail rejected invalid recipient address');
+        return false;
+    }
     $subject = preg_replace('/[\r\n]+/', ' ', $subject);
 
     $headers = 'From: ' . MAIL_FROM_NAME . ' <' . MAIL_FROM . ">\r\n";
@@ -362,7 +492,14 @@ function send_app_mail(string $to, string $subject, string $html): bool {
     $headers .= "X-Mailer: MyRecordsCollection\r\n";
 
     try {
-        return @mail($to, $subject, $html, $headers);
+        $sent = mail($to, $subject, $html, $headers);
+        if (!$sent) {
+            $lastError = error_get_last();
+            error_log('[Auth] mail() returned false for recipient domain '
+                . substr(strrchr($to, '@') ?: '@unknown', 1)
+                . (!empty($lastError['message']) ? ': ' . $lastError['message'] : ''));
+        }
+        return $sent;
     } catch (\Throwable $e) {
         error_log('[Auth] mail() failed: ' . $e->getMessage());
         return false;

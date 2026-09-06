@@ -5,14 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Help &amp; How-to · My Records Collection</title>
     <meta name="description" content="How to use My Records Collection: accounts, adding records, tags, wishlist, backups and more.">
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('rc-theme');
-                if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-            } catch (e) {}
-        })();
-    </script>
+    <script src="js/theme-bootstrap.js?v=20260906200000"></script>
     <link rel="stylesheet" href="css/style.css?v=20260827170000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -109,19 +102,6 @@
 
     <script src="js/theme.js?v=20260827170000"></script>
     <script src="js/legal.js?v=20260827170000"></script>
-    <script>
-        (function () {
-            var link = document.getElementById('helpDisclaimer');
-            var modal = document.getElementById('disclaimerModal');
-            if (link) link.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.getElementById('disclaimerBody').innerHTML = window.RC_DISCLAIMER_HTML || '';
-                modal.classList.remove('hidden');
-            });
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal || e.target.classList.contains('modal-close')) modal.classList.add('hidden');
-            });
-        })();
-    </script>
+    <script src="js/help.js?v=20260906200000"></script>
 </body>
 </html>

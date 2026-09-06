@@ -306,8 +306,9 @@
         $count.textContent = `${records.length} record${records.length !== 1 ? 's' : ''}`;
 
         $grid.innerHTML = records.map(r => {
-            const coverSrc = r.cover_url
-                ? escHtml(r.cover_url)
+            const safeCoverUrl = safeImageUrl(r.cover_url);
+            const coverSrc = safeCoverUrl
+                ? escHtml(safeCoverUrl)
                 : `${COVER_API}?artist=${encodeURIComponent(r.artist)}&album=${encodeURIComponent(r.album)}`;
             const isSelected = selectedIds.has(r.id);
             return `
@@ -1305,7 +1306,8 @@
             const rows = records.map(r =>
                 cols.map(c => {
                     const val = r[c] ?? '';
-                    const str = String(val);
+                    let str = String(val);
+                    if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
                     // Wrap in quotes if the value contains comma, quote, or newline
                     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
                         return '"' + str.replace(/"/g, '""') + '"';
@@ -1554,6 +1556,17 @@
         const d = document.createElement('div');
         d.textContent = str;
         return d.innerHTML;
+    }
+
+    function safeImageUrl(value) {
+        const url = String(value ?? '').trim();
+        if (/^covers\/[a-f0-9]{32}\.jpg$/i.test(url)) return url;
+        try {
+            const parsed = new URL(url);
+            return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+        } catch {
+            return '';
+        }
     }
 
     // ── Expose functions for Priority 2 modules ────────────

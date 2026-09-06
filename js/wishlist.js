@@ -6,6 +6,21 @@
 (function() {
     'use strict';
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[character]));
+    }
+
+    function safeExternalUrl(value) {
+        try {
+            const url = new URL(String(value));
+            return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+        } catch {
+            return '';
+        }
+    }
+
     const Wishlist = {
         wishlistItems: [],
 
@@ -226,28 +241,30 @@
                 return;
             }
 
-            grid.innerHTML = this.wishlistItems.map(item => `
-                <div class="wish-card" data-wish-id="${item.id}">
+            grid.innerHTML = this.wishlistItems.map(item => {
+                const discogsUrl = safeExternalUrl(item.discogs_url);
+                return `
+                <div class="wish-card" data-wish-id="${Number(item.id)}">
                     <div class="wish-header">
                         <div class="wish-format-badge">
-                            <span class="badge">${item.format || 'Vinyl'}</span>
+                            <span class="badge">${escapeHtml(item.format || 'Vinyl')}</span>
                         </div>
                         <div class="wish-actions">
-                            <button class="icon-btn wish-edit-btn" data-wish-id="${item.id}" title="Edit">
+                            <button class="icon-btn wish-edit-btn" data-wish-id="${Number(item.id)}" title="Edit">
                                 ✎
                             </button>
-                            <button class="icon-btn wish-mark-btn" data-wish-id="${item.id}" title="Mark as Purchased">
+                            <button class="icon-btn wish-mark-btn" data-wish-id="${Number(item.id)}" title="Mark as Purchased">
                                 ✓
                             </button>
-                            <button class="icon-btn danger wish-delete-btn" data-wish-id="${item.id}" title="Delete">
+                            <button class="icon-btn danger wish-delete-btn" data-wish-id="${Number(item.id)}" title="Delete">
                                 🗑
                             </button>
                         </div>
                     </div>
 
                     <div class="wish-info">
-                        <h4 class="wish-album">${item.album}</h4>
-                        <p class="wish-artist">${item.artist}</p>
+                        <h4 class="wish-album">${escapeHtml(item.album)}</h4>
+                        <p class="wish-artist">${escapeHtml(item.artist)}</p>
                     </div>
 
                     ${item.target_price ? `
@@ -258,11 +275,11 @@
                     ` : ''}
 
                     ${item.notes ? `
-                        <div class="wish-notes">${item.notes}</div>
+                        <div class="wish-notes">${escapeHtml(item.notes)}</div>
                     ` : ''}
 
-                    ${item.discogs_url ? `
-                        <a href="${item.discogs_url}" target="_blank" class="wish-link">
+                    ${discogsUrl ? `
+                        <a href="${escapeHtml(discogsUrl)}" target="_blank" rel="noopener noreferrer" class="wish-link">
                             View on Discogs →
                         </a>
                     ` : ''}
@@ -271,7 +288,8 @@
                         <span class="wish-date">Added ${this.formatDate(item.added_at)}</span>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             // Bind wish card action buttons (CSP-compliant)
             grid.querySelectorAll('.wish-edit-btn').forEach(btn =>

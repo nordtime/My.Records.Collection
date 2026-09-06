@@ -8,6 +8,12 @@
 
     const Analytics = {
         charts: {},
+
+        escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[character]));
+        },
         
         /**
          * Initialize analytics dashboard
@@ -472,12 +478,12 @@
                     </thead>
                     <tbody>
                         ${valuable.map((r, idx) => `
-                            <tr class="valuable-row" data-record-id="${r.id}">
+                            <tr class="valuable-row" data-record-id="${Number(r.id)}">
                                 <td class="rank-cell">${idx + 1}</td>
-                                <td class="album-cell">${r.album}</td>
-                                <td class="artist-cell">${r.artist}</td>
+                                <td class="album-cell">${this.escapeHtml(r.album)}</td>
+                                <td class="artist-cell">${this.escapeHtml(r.artist)}</td>
                                 <td class="format-cell">
-                                    <span class="badge">${r.format}</span>
+                                    <span class="badge">${this.escapeHtml(r.format)}</span>
                                 </td>
                                 <td class="value-cell">$${parseFloat(r.discogs_value).toFixed(2)}</td>
                             </tr>

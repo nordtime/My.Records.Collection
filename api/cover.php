@@ -11,11 +11,17 @@
  */
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth_lib.php';
+
+header_remove('X-Powered-By');
+$pdo = get_db();
+ensureAuthSchema($pdo);
+$authUser = require_auth($pdo);
 
 $artist = trim($_GET['artist'] ?? '');
 $album  = trim($_GET['album']  ?? '');
 
-if ($artist === '' || $album === '') {
+if ($artist === '' || $album === '' || mb_strlen($artist) > 255 || mb_strlen($album) > 255) {
     http_response_code(400);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'artist and album are required.']);
@@ -39,7 +45,6 @@ if (file_exists($cachedFile) && filesize($cachedFile) > 0) {
 
 // ── Resolve MBID ────────────────────────────────────────────
 $mbid = null;
-$pdo  = get_db();
 
 // Check track_cache first (already has MBID stored)
 $cacheKey = mb_strtolower($artist . '||' . $album);
@@ -128,11 +133,13 @@ $localUrl = 'covers/' . $safeKey . '.jpg';
 $updateStmt = $pdo->prepare('
     UPDATE records SET cover_url = :url
     WHERE cover_url = "" AND LOWER(artist) = LOWER(:artist) AND LOWER(album) = LOWER(:album)
+      AND user_id = :uid
 ');
 $updateStmt->execute([
     ':url'    => $localUrl,
     ':artist' => $artist,
     ':album'  => $album,
+    ':uid'    => (int) $authUser['id'],
 ]);
 
 serveCachedImage($cachedFile);
@@ -191,9 +198,5 @@ function downloadUrl(string $url, int $timeout = 8): string|false {
  * Download an image URL — returns raw bytes or false.
  */
 function downloadImage(string $url): string|false {
-    $data = downloadUrl($url, 10);
-    if ($data !== false && strlen($data) > 100) {
-        return $data;
-    }
-    return false;
+    return download_public_image($url);
 }

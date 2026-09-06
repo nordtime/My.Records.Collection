@@ -300,10 +300,12 @@
 
             // Cover art
             const coverImg = modal.querySelector('.detail-cover-img');
-            if (record.cover_url) {
-                coverImg.src = record.cover_url;
+            const coverUrl = this.safeImageUrl(record.cover_url);
+            if (coverUrl) {
+                coverImg.src = coverUrl;
                 coverImg.style.display = 'block';
             } else {
+                coverImg.removeAttribute('src');
                 coverImg.style.display = 'none';
             }
 
@@ -347,18 +349,22 @@
             // External links
             const discogsLink = modal.querySelector('.discogs-link');
             const mbLink = modal.querySelector('.musicbrainz-link');
+            const discogsUrl = this.safeExternalUrl(record.discogs_url);
+            const musicbrainzUrl = this.safeExternalUrl(record.musicbrainz_url);
 
-            if (record.discogs_url) {
-                discogsLink.href = record.discogs_url;
+            if (discogsUrl) {
+                discogsLink.href = discogsUrl;
                 discogsLink.style.display = 'flex';
             } else {
+                discogsLink.removeAttribute('href');
                 discogsLink.style.display = 'none';
             }
 
-            if (record.musicbrainz_url) {
-                mbLink.href = record.musicbrainz_url;
+            if (musicbrainzUrl) {
+                mbLink.href = musicbrainzUrl;
                 mbLink.style.display = 'flex';
             } else {
+                mbLink.removeAttribute('href');
                 mbLink.style.display = 'none';
             }
         },
@@ -587,16 +593,16 @@
                     relatedEl.innerHTML = `
                         <div class="related-grid">
                             ${related.map(r => `
-                                <div class="related-card" data-record-id="${r.id}">
+                                <div class="related-card" data-record-id="${Number(r.id)}">
                                     <div class="related-cover">
-                                        ${r.cover_url 
-                                            ? `<img src="${r.cover_url}" alt="${r.album}" />` 
+                                        ${this.safeImageUrl(r.cover_url)
+                                            ? `<img src="${this.escapeHtml(this.safeImageUrl(r.cover_url))}" alt="${this.escapeHtml(r.album)}" />`
                                             : '<span class="cover-placeholder">🎵</span>'
                                         }
                                     </div>
                                     <div class="related-info">
-                                        <div class="related-album">${r.album}</div>
-                                        <div class="related-artist">${r.artist}</div>
+                                        <div class="related-album">${this.escapeHtml(r.album)}</div>
+                                        <div class="related-artist">${this.escapeHtml(r.artist)}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -763,6 +769,21 @@
             }[c]));
         },
 
+        safeExternalUrl(value) {
+            try {
+                const url = new URL(String(value));
+                return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+            } catch {
+                return '';
+            }
+        },
+
+        safeImageUrl(value) {
+            const url = String(value ?? '').trim();
+            if (/^covers\/[a-f0-9]{32}\.jpg$/i.test(url)) return url;
+            return this.safeExternalUrl(url);
+        },
+
         /**
          * Highlight stars
          */
@@ -920,7 +941,7 @@
                 'Cassette': '<span class="badge badge-cassette">Cassette</span>',
                 'Digital': '<span class="badge badge-digital">Digital</span>'
             };
-            return badges[format] || `<span class="badge">${format}</span>`;
+            return badges[format] || `<span class="badge">${this.escapeHtml(format)}</span>`;
         }
     };
 

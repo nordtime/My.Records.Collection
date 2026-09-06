@@ -9,6 +9,7 @@
  *  POST ?action=approve|disable|set_role|delete_user|set_open_registration  (admin)
  */
 
+header_remove('X-Powered-By');
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
@@ -105,6 +106,8 @@ function handleRegister(PDO $pdo, array $data): void {
     $email    = trim($data['email'] ?? '');
     $password = (string) ($data['password'] ?? '');
 
+    require_auth_action_rate('register_ip', 5, 3600);
+
     if (!captcha_verify($data['captcha'] ?? '')) {
         json_out(['success' => false, 'message' => 'Incorrect verification answer. Please try again.'], 422);
     }
@@ -178,14 +181,16 @@ function handleRegister(PDO $pdo, array $data): void {
         '<p>Welcome! Please confirm your email address to activate your My Records Collection account.</p>'
         . mail_button('Verify my email', $verifyUrl)
         . '<p style="font-size:13px;color:#8b949e;">This link expires in 24 hours.</p>');
-    send_app_mail($email, 'Verify your email · My Records Collection', $body);
+    $sent = send_app_mail($email, 'Verify your email · My Records Collection', $body);
 
     json_out([
         'success' => true,
         'authenticated' => false,
-        'verify_sent' => true,
-        'message' => 'Account created. Check your email for a verification link to activate your account'
-            . ($status === 'pending' ? ', then an administrator will approve access.' : '.'),
+        'verify_sent' => $sent,
+        'message' => $sent
+            ? 'Account created. Check your email for a verification link to activate your account'
+                . ($status === 'pending' ? ', then an administrator will approve access.' : '.')
+            : 'Account created, but the verification email could not be sent. Please use resend verification later or contact an administrator.',
     ]);
 }
 
@@ -275,12 +280,14 @@ function handleVerifyEmail(PDO $pdo, array $data): void {
  * Resend a verification email. Captcha-protected. Always responds generically.
  */
 function handleResendVerification(PDO $pdo, array $data): void {
+    require_auth_action_rate('auth_mail_ip', 10, 3600);
     if (!captcha_verify($data['captcha'] ?? '')) {
         json_out(['success' => false, 'message' => 'Incorrect verification answer.'], 422);
     }
     $email = trim((string) ($data['email'] ?? ''));
     $generic = ['success' => true, 'message' => 'If that email needs verifying, a new link is on its way.'];
     if (!valid_email($email)) json_out($generic);
+    require_auth_action_rate('auth_mail_recipient', 3, 3600, strtolower($email));
     $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :e AND email_verified = 0 LIMIT 1');
     $stmt->execute([':e' => $email]);
     $user = $stmt->fetch();
@@ -301,12 +308,14 @@ function handleResendVerification(PDO $pdo, array $data): void {
  * Request a password reset email. Captcha-protected. Always responds generically.
  */
 function handleRequestReset(PDO $pdo, array $data): void {
+    require_auth_action_rate('auth_mail_ip', 10, 3600);
     if (!captcha_verify($data['captcha'] ?? '')) {
         json_out(['success' => false, 'message' => 'Incorrect verification answer.'], 422);
     }
     $email = trim((string) ($data['email'] ?? ''));
     $generic = ['success' => true, 'message' => 'If an account exists for that email, a reset link has been sent.'];
     if (!valid_email($email)) json_out($generic);
+    require_auth_action_rate('auth_mail_recipient', 3, 3600, strtolower($email));
     $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :e LIMIT 1');
     $stmt->execute([':e' => $email]);
     $user = $stmt->fetch();
@@ -493,7 +502,7 @@ function handleAdminAction(PDO $pdo, string $action, array $data): void {
     switch ($action) {
         case 'approve':
             $pdo->prepare("UPDATE users SET status = 'active' WHERE id = :id")->execute([':id' => $targetId]);
-            json_out(['success' => true]);
+            json_out(['success' => true, 'message' => 'User enabled.']);
             break;
 
         case 'disable':
@@ -501,7 +510,7 @@ function handleAdminAction(PDO $pdo, string $action, array $data): void {
                 json_out(['success' => false, 'message' => 'You cannot disable your own account.'], 409);
             }
             $pdo->prepare("UPDATE users SET status = 'disabled' WHERE id = :id")->execute([':id' => $targetId]);
-            json_out(['success' => true]);
+            json_out(['success' => true, 'message' => 'User disabled.']);
             break;
 
         case 'set_role':
@@ -510,7 +519,7 @@ function handleAdminAction(PDO $pdo, string $action, array $data): void {
                 json_out(['success' => false, 'message' => 'You cannot remove your own admin role.'], 409);
             }
             $pdo->prepare('UPDATE users SET role = :r WHERE id = :id')->execute([':r' => $role, ':id' => $targetId]);
-            json_out(['success' => true]);
+            json_out(['success' => true, 'message' => $role === 'admin' ? 'Administrator access granted.' : 'Administrator access removed.']);
             break;
 
         case 'delete_user':
@@ -519,7 +528,7 @@ function handleAdminAction(PDO $pdo, string $action, array $data): void {
             }
             purge_user_data($pdo, $targetId);
             $pdo->prepare('DELETE FROM users WHERE id = :id')->execute([':id' => $targetId]);
-            json_out(['success' => true]);
+            json_out(['success' => true, 'message' => 'User and their data were deleted.']);
             break;
 
         case 'resend_verification_for':
@@ -541,7 +550,10 @@ function handleAdminAction(PDO $pdo, string $action, array $data): void {
                 . mail_button('Verify my email', $url)
                 . '<p style="font-size:13px;color:#8b949e;">This link expires in 24 hours.</p>');
             $sent = send_app_mail($target['email'], 'Verify your email · My Records Collection', $body);
-            json_out(['success' => true, 'sent' => $sent, 'message' => 'Verification email sent.']);
+            if (!$sent) {
+                json_out(['success' => false, 'sent' => false, 'message' => 'The verification email could not be sent. Check the server mail log.'], 502);
+            }
+            json_out(['success' => true, 'sent' => true, 'message' => 'Verification email sent.']);
             break;
     }
 }
