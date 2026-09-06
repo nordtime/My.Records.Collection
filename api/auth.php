@@ -176,6 +176,8 @@ function handleRegister(PDO $pdo, array $data): void {
         ':vh' => $tokenHash,
     ]);
 
+    notifyAdminsOfNewUser($pdo, $username, $email, $status);
+
     $verifyUrl = app_base_url() . '/verify.html?token=' . $rawToken;
     $body = mail_template('Confirm your email',
         '<p>Welcome! Please confirm your email address to activate your My Records Collection account.</p>'
@@ -192,6 +194,34 @@ function handleRegister(PDO $pdo, array $data): void {
                 . ($status === 'pending' ? ', then an administrator will approve access.' : '.')
             : 'Account created, but the verification email could not be sent. Please use resend verification later or contact an administrator.',
     ]);
+}
+
+function notifyAdminsOfNewUser(PDO $pdo, string $username, string $email, string $status): void {
+    try {
+        $adminEmails = $pdo->query("SELECT email FROM users WHERE role = 'admin' AND status = 'active'")
+            ->fetchAll(PDO::FETCH_COLUMN);
+        if (!$adminEmails) return;
+
+        $safeUsername = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+        $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+        $approvalText = $status === 'pending'
+            ? 'This account will require administrator approval after the user verifies their email.'
+            : 'Open registration is enabled, so this account will become active after the user verifies their email.';
+        $body = mail_template('New user registered',
+            '<p>A new user has registered for My Records Collection.</p>'
+            . '<p><strong>Username:</strong> ' . $safeUsername . '<br>'
+            . '<strong>Email:</strong> ' . $safeEmail . '</p>'
+            . '<p>' . $approvalText . '</p>'
+            . mail_button('Open user management', app_base_url() . '/'));
+
+        foreach ($adminEmails as $adminEmail) {
+            if (!send_app_mail((string) $adminEmail, 'New user registered · My Records Collection', $body)) {
+                error_log('[Auth] new-user admin notification could not be sent');
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('[Auth] new-user admin notification failed: ' . $e->getMessage());
+    }
 }
 
 function handleLogin(PDO $pdo, array $data): void {
