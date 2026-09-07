@@ -7,9 +7,9 @@
 
     const STORAGE_KEY = 'rc-theme';
     const MODES = [
-        { value: 'system', label: 'System', icon: '🖥️' },
-        { value: 'light',  label: 'Light',  icon: '☀️' },
-        { value: 'dark',   label: 'Dark',   icon: '🌙' },
+        { value: 'system', label: 'System', key: 'theme.system', icon: '🖥️' },
+        { value: 'light',  label: 'Light',  key: 'theme.light',  icon: '☀️' },
+        { value: 'dark',   label: 'Dark',   key: 'theme.dark',   icon: '🌙' },
     ];
 
     const ThemeManager = {
@@ -46,21 +46,21 @@
             picker.className = 'theme-picker';
             picker.id = 'theme-picker';
             picker.innerHTML = `
-                <button class="btn btn-ghost" id="theme-toggle" title="Theme" aria-haspopup="true" aria-expanded="false">
-                    <span class="theme-icon" style="margin-right:0.4rem;">🖥️</span> Theme
+                <button class="btn btn-ghost" id="theme-toggle" title="Theme" aria-haspopup="true" aria-expanded="false" data-i18n-title="theme.title">
+                    <span class="theme-icon" style="margin-inline-end:0.4rem;">🖥️</span> <span data-i18n="theme.title">Theme</span>
                 </button>
                 <div class="theme-menu hidden" role="menu">
                     ${MODES.map(m => `
                         <button class="theme-menu-item" data-value="${m.value}" role="menuitemradio">
                             <span>${m.icon}</span>
-                            <span>${m.label}</span>
+                            <span data-i18n="${m.key}">${m.label}</span>
                             <span class="theme-check">✓</span>
                         </button>
                     `).join('')}
                 </div>
             `;
-            // Place theme picker first in the nav
-            nav.insertBefore(picker, nav.firstChild);
+            const languageToggle = nav.querySelector('#languageToggle');
+            nav.insertBefore(picker, languageToggle || nav.firstChild);
 
             const toggle = picker.querySelector('#theme-toggle');
             const menu = picker.querySelector('.theme-menu');

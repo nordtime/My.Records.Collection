@@ -5,6 +5,9 @@
 
 (function() {
     'use strict';
+    const tr = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -13,6 +16,8 @@
     }
 
     const ListeningSessions = {
+        currentSessions: [],
+        currentStats: null,
         /**
          * Initialize listening sessions
          */
@@ -31,7 +36,7 @@
             const sessionsBtn = document.createElement('button');
             sessionsBtn.id = 'sessions-btn';
             sessionsBtn.className = 'btn btn-ghost';
-            sessionsBtn.innerHTML = '<span style="margin-right: 0.5rem;">📻</span> History';
+            sessionsBtn.innerHTML = '<span style="margin-inline-end: 0.5rem;">📻</span> <span data-i18n="nav.history">History</span>';
             
             // Insert before wishlist button or before stats button
             const wishlistBtn = document.getElementById('wishlist-btn');
@@ -50,8 +55,8 @@
             modal.innerHTML = `
                 <div class="modal modal-wide">
                     <div class="modal-header">
-                        <h2>📻 Listening History</h2>
-                        <button class="btn-close modal-close">&times;</button>
+                        <h2>📻 <span data-i18n="sessions.title">Listening History</span></h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="sessions-stats">
@@ -59,36 +64,36 @@
                                 <div class="session-stat-icon">🎵</div>
                                 <div class="session-stat-content">
                                     <div class="session-stat-value" id="totalPlays">0</div>
-                                    <div class="session-stat-label">Total Plays</div>
+                                    <div class="session-stat-label" data-i18n="sessions.totalPlays">Total Plays</div>
                                 </div>
                             </div>
                             <div class="session-stat-card">
                                 <div class="session-stat-icon">🔥</div>
                                 <div class="session-stat-content">
                                     <div class="session-stat-value" id="currentStreak">0</div>
-                                    <div class="session-stat-label">Day Streak</div>
+                                    <div class="session-stat-label" data-i18n="sessions.dayStreak">Day Streak</div>
                                 </div>
                             </div>
                             <div class="session-stat-card">
                                 <div class="session-stat-icon">⭐</div>
                                 <div class="session-stat-content">
                                     <div class="session-stat-value" id="mostPlayedRecord">—</div>
-                                    <div class="session-stat-label">Most Played</div>
+                                    <div class="session-stat-label" data-i18n="sessions.mostPlayed">Most Played</div>
                                 </div>
                             </div>
                             <div class="session-stat-card">
                                 <div class="session-stat-icon">📅</div>
                                 <div class="session-stat-content">
                                     <div class="session-stat-value" id="lastPlayed">—</div>
-                                    <div class="session-stat-label">Last Played</div>
+                                    <div class="session-stat-label" data-i18n="sessions.lastPlayed">Last Played</div>
                                 </div>
                             </div>
                         </div>
                         <div class="sessions-tabs">
-                            <button class="sessions-tab active" data-filter="all">All Time</button>
-                            <button class="sessions-tab" data-filter="week">This Week</button>
-                            <button class="sessions-tab" data-filter="month">This Month</button>
-                            <button class="sessions-tab" data-filter="year">This Year</button>
+                            <button class="sessions-tab active" data-filter="all" data-i18n="sessions.allTime">All Time</button>
+                            <button class="sessions-tab" data-filter="week" data-i18n="sessions.week">This Week</button>
+                            <button class="sessions-tab" data-filter="month" data-i18n="sessions.month">This Month</button>
+                            <button class="sessions-tab" data-filter="year" data-i18n="sessions.year">This Year</button>
                         </div>
                         <div class="sessions-timeline" id="sessionsTimeline"></div>
                     </div>
@@ -144,13 +149,15 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    this.currentStats = data.stats;
+                    this.currentSessions = data.sessions || [];
                     this.renderStats(data.stats);
-                    this.renderTimeline(data.sessions || []);
+                    this.renderTimeline(this.currentSessions);
                 }
             } catch (error) {
                 console.error('Failed to load sessions:', error);
                 if (window.ToastNotifications) {
-                    window.ToastNotifications.error('Failed to load listening history');
+                    window.ToastNotifications.error(tr('sessions.loadFailed', {}, 'Failed to load listening history'));
                 }
             }
         },
@@ -186,7 +193,7 @@
                 if (stats.last_played_date) {
                     lastPlayedEl.textContent = this.formatRelativeDate(stats.last_played_date);
                 } else {
-                    lastPlayedEl.textContent = 'Never';
+                    lastPlayedEl.textContent = tr('common.never', {}, 'Never');
                 }
                 lastPlayedEl.style.fontSize = '0.875rem';
             }
@@ -203,8 +210,8 @@
                 timeline.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">📻</div>
-                        <h3>No listening history yet</h3>
-                        <p>Start tracking by clicking "Mark as Played" on any record</p>
+                        <h3>${escapeHtml(tr('sessions.emptyTitle', {}, 'No listening history yet'))}</h3>
+                        <p>${escapeHtml(tr('sessions.emptyText', {}, 'Start tracking by clicking "Mark as Played" on any record'))}</p>
                     </div>
                 `;
                 return;
@@ -217,15 +224,15 @@
                 <div class="timeline-date-group">
                     <div class="timeline-date-header">
                         <span class="timeline-date">${this.formatDate(date)}</span>
-                        <span class="timeline-count">${daySessions.length} play${daySessions.length !== 1 ? 's' : ''}</span>
+                        <span class="timeline-count">${escapeHtml(tr('sessions.plays', { count: daySessions.length }, `${daySessions.length} play${daySessions.length !== 1 ? 's' : ''}`))}</span>
                     </div>
                     <div class="timeline-items">
                         ${daySessions.map(session => `
                             <div class="timeline-item" data-record-id="${Number(session.record_id)}">
                                 <div class="timeline-time">${this.formatTime(session.played_at)}</div>
                                 <div class="timeline-record">
-                                    <div class="timeline-album">${escapeHtml(session.album)}</div>
-                                    <div class="timeline-artist">${escapeHtml(session.artist)}</div>
+                                    <div class="timeline-album" dir="auto">${escapeHtml(session.album)}</div>
+                                    <div class="timeline-artist" dir="auto">${escapeHtml(session.artist)}</div>
                                 </div>
                                 <div class="timeline-format">
                                     <span class="badge">${escapeHtml(session.format)}</span>
@@ -289,10 +296,10 @@
             const isToday = date.toDateString() === today.toDateString();
             const isYesterday = date.toDateString() === yesterday.toDateString();
 
-            if (isToday) return 'Today';
-            if (isYesterday) return 'Yesterday';
+            if (isToday) return tr('common.today', {}, 'Today');
+            if (isYesterday) return tr('common.yesterday', {}, 'Yesterday');
 
-            return date.toLocaleDateString('en-US', {
+            return date.toLocaleDateString(window.I18n?.locale || 'en-US', {
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
@@ -305,10 +312,10 @@
          */
         formatTime(dateTimeString) {
             const date = new Date(dateTimeString);
-            return date.toLocaleTimeString('en-US', {
+            return date.toLocaleTimeString(window.I18n?.locale || 'en-US', {
                 hour: 'numeric',
                 minute: '2-digit',
-                hour12: true
+                hour12: window.I18n?.language !== 'he'
             });
         },
 
@@ -323,12 +330,13 @@
             const diffHours = Math.floor(diffMs / 3600000);
             const diffDays = Math.floor(diffMs / 86400000);
 
-            if (diffMins < 1) return 'Just now';
-            if (diffMins < 60) return `${diffMins}m ago`;
-            if (diffHours < 24) return `${diffHours}h ago`;
-            if (diffDays < 7) return `${diffDays}d ago`;
+            const relative = new Intl.RelativeTimeFormat(window.I18n?.locale || 'en-US', { numeric: 'auto' });
+            if (diffMins < 1) return relative.format(0, 'second');
+            if (diffMins < 60) return relative.format(-diffMins, 'minute');
+            if (diffHours < 24) return relative.format(-diffHours, 'hour');
+            if (diffDays < 7) return relative.format(-diffDays, 'day');
 
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return date.toLocaleDateString(window.I18n?.locale || 'en-US', { month: 'short', day: 'numeric' });
         },
 
         /**
@@ -356,6 +364,11 @@
 
     // Expose globally
     window.ListeningSessions = ListeningSessions;
+
+    document.addEventListener('rc:languagechange', () => {
+        ListeningSessions.renderStats(ListeningSessions.currentStats);
+        ListeningSessions.renderTimeline(ListeningSessions.currentSessions);
+    });
 
     // Auto-initialize
     if (document.readyState === 'loading') {

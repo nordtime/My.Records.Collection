@@ -5,22 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💿 My Records Collection</title>
     <script src="js/theme-bootstrap.js?v=20260906200000"></script>
-    <link rel="stylesheet" href="css/style.css?v=20260906190000">
+    <script src="js/i18n.js?v=20260907170000"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260907170000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Hebrew:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body data-i18n-title="app.title">
 
     <!-- ── Header ────────────────────────────────────────── -->
     <header class="app-header">
         <div class="header-inner">
             <div class="logo">
                 <span class="logo-icon">&#127926;</span>
-                <h1>My Records Collection</h1>
+                <h1 data-i18n="app.title">My Records Collection</h1>
             </div>
             <nav class="header-nav">
-                <button class="btn btn-ghost" id="btnStats" title="Statistics">&#128202; Stats</button>
+                <button class="btn btn-ghost" id="btnStats" title="Statistics" data-i18n="nav.stats" data-i18n-title="nav.stats">&#128202; Stats</button>
             </nav>
         </div>
     </header>
@@ -30,82 +31,82 @@
         <div class="toolbar-inner">
             <div class="search-group">
                 <div class="search-input-wrapper">
-                    <input type="text" id="searchInput" class="input" placeholder="Search artist, album, or notes…">
-                    <select id="searchScope" class="input select select-sm search-scope-select" title="Search scope">
-                        <option value="all">All Fields</option>
-                        <option value="artist">Artist Only</option>
-                        <option value="album">Album Only</option>
-                        <option value="notes">Notes Only</option>
+                    <input type="text" id="searchInput" class="input" placeholder="Search artist, album, or notes…" data-i18n-placeholder="search.placeholder">
+                    <select id="searchScope" class="input select select-sm search-scope-select" title="Search scope" data-i18n-title="search.scope">
+                        <option value="all" data-i18n="search.allFields">All Fields</option>
+                        <option value="artist" data-i18n="search.artistOnly">Artist Only</option>
+                        <option value="album" data-i18n="search.albumOnly">Album Only</option>
+                        <option value="notes" data-i18n="search.notesOnly">Notes Only</option>
                     </select>
                 </div>
                 <select id="filterGenre" class="input select">
-                    <option value="">All Genres</option>
+                    <option value="" data-i18n="filter.allGenres">All Genres</option>
                 </select>
                 <select id="filterYear" class="input select">
-                    <option value="">All Years</option>
+                    <option value="" data-i18n="filter.allYears">All Years</option>
                 </select>
                 <select id="filterFormat" class="input select">
-                    <option value="">All Formats</option>
-                    <option value="Vinyl">Vinyl</option>
-                    <option value="CD">CD</option>
-                    <option value="Cassette">Cassette</option>
-                    <option value="Digital">Digital</option>
+                    <option value="" data-i18n="filter.allFormats">All Formats</option>
+                    <option value="Vinyl" data-i18n="format.vinyl">Vinyl</option>
+                    <option value="CD" data-i18n="format.cd">CD</option>
+                    <option value="Cassette" data-i18n="format.cassette">Cassette</option>
+                    <option value="Digital" data-i18n="format.digital">Digital</option>
                 </select>
                 <select id="sortSelect" class="input select">
-                    <option value="artist">Artist ↑</option>
-                    <option value="date_added">Date Added ↓</option>
-                    <option value="album">Album ↑</option>
-                    <option value="year">Year ↓</option>
-                    <option value="genre">Genre ↑</option>
+                    <option value="artist" data-i18n="sort.artist">Artist ↑</option>
+                    <option value="date_added" data-i18n="sort.dateAdded">Date Added ↓</option>
+                    <option value="album" data-i18n="sort.album">Album ↑</option>
+                    <option value="year" data-i18n="sort.year">Year ↓</option>
+                    <option value="genre" data-i18n="sort.genre">Genre ↑</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" id="btnAdvancedFilters" title="Advanced filters">
+                <button class="btn btn-ghost btn-sm" id="btnAdvancedFilters" title="Advanced filters" data-i18n="filter.advanced" data-i18n-title="filter.advancedTitle">
                     &#128269; Filters
                 </button>
-                <button class="btn btn-ghost btn-sm" id="btnSetDefault" title="Save current filters &amp; sort as default view">&#9733; Set Default</button>
+                <button class="btn btn-ghost btn-sm" id="btnSetDefault" title="Save current filters &amp; sort as default view" data-i18n="filter.setDefault" data-i18n-title="filter.setDefaultTitle">&#9733; Set Default</button>
             </div>
             <div class="btn-group">
-                <button class="btn btn-ghost" id="btnSpin" title="Pick a random record to play">&#127922; Surprise Me</button>
+                <button class="btn btn-ghost" id="btnSpin" title="Pick a random record to play" data-i18n="action.surprise" data-i18n-title="action.surpriseTitle">&#127922; Surprise Me</button>
                 <div class="menu-wrap" id="dataMenu">
-                    <button class="btn btn-ghost" id="btnDataMenu" aria-haspopup="true" aria-expanded="false" title="Import, export &amp; backup">&#128190; Data &#9662;</button>
+                    <button class="btn btn-ghost" id="btnDataMenu" aria-haspopup="true" aria-expanded="false" title="Import, export &amp; backup" data-i18n="action.data" data-i18n-title="action.dataTitle">&#128190; Data &#9662;</button>
                     <div class="menu-popover hidden" role="menu">
-                        <button class="menu-popover-item" id="btnExportCsv" role="menuitem">&#128228; Export CSV</button>
-                        <button class="menu-popover-item" id="btnImportCsv" role="menuitem">&#128229; Import CSV</button>
+                        <button class="menu-popover-item" id="btnExportCsv" role="menuitem" data-i18n="action.exportCsv">&#128228; Export CSV</button>
+                        <button class="menu-popover-item" id="btnImportCsv" role="menuitem" data-i18n="action.importCsv">&#128229; Import CSV</button>
                         <div class="menu-popover-sep"></div>
-                        <button class="menu-popover-item" id="btnBackup" role="menuitem">&#128190; Backup (JSON)</button>
-                        <button class="menu-popover-item" id="btnRestore" role="menuitem">&#9851; Restore (JSON)</button>
+                        <button class="menu-popover-item" id="btnBackup" role="menuitem" data-i18n="action.backup">&#128190; Backup (JSON)</button>
+                        <button class="menu-popover-item" id="btnRestore" role="menuitem" data-i18n="action.restore">&#9851; Restore (JSON)</button>
                     </div>
                 </div>
-                <button class="btn btn-primary" id="btnAdd">&#43; Add Record</button>
+                <button class="btn btn-primary" id="btnAdd" data-i18n="action.addRecord">&#43; Add Record</button>
             </div>
         </div>
         <!-- Advanced Filters Panel (hidden by default) -->
         <div class="advanced-filters hidden" id="advancedFiltersPanel">
             <div class="toolbar-inner advanced-filters-inner">
                 <div class="advanced-filter-group">
-                    <label class="filter-label">Date Added:</label>
-                    <input type="date" id="filterDateFrom" class="input adv-year-input" placeholder="From">
-                    <span class="filter-label filter-label-to">to</span>
-                    <input type="date" id="filterDateTo" class="input adv-year-input" placeholder="To">
+                    <label class="filter-label" data-i18n="filter.dateAdded">Date Added:</label>
+                    <input type="date" id="filterDateFrom" class="input adv-year-input" placeholder="From" data-i18n-placeholder="filter.from">
+                    <span class="filter-label filter-label-to" data-i18n="filter.to">to</span>
+                    <input type="date" id="filterDateTo" class="input adv-year-input" placeholder="To" data-i18n-placeholder="filter.to">
                 </div>
                 <div class="advanced-filter-group">
-                    <label class="filter-label">Condition:</label>
+                    <label class="filter-label" data-i18n="filter.condition">Condition:</label>
                     <select id="filterCondition" class="input select">
-                        <option value="">All Conditions</option>
-                        <option value="Mint (M)">Mint (M)</option>
-                        <option value="Near Mint (NM)">Near Mint (NM)</option>
-                        <option value="Very Good Plus (VG+)">Very Good Plus (VG+)</option>
-                        <option value="Very Good (VG)">Very Good (VG)</option>
-                        <option value="Good (G)">Good (G)</option>
-                        <option value="Fair (F)">Fair (F)</option>
-                        <option value="Poor (P)">Poor (P)</option>
+                        <option value="" data-i18n="filter.allConditions">All Conditions</option>
+                        <option value="Mint (M)" data-i18n="condition.mint">Mint (M)</option>
+                        <option value="Near Mint (NM)" data-i18n="condition.nearMint">Near Mint (NM)</option>
+                        <option value="Very Good Plus (VG+)" data-i18n="condition.veryGoodPlus">Very Good Plus (VG+)</option>
+                        <option value="Very Good (VG)" data-i18n="condition.veryGood">Very Good (VG)</option>
+                        <option value="Good (G)" data-i18n="condition.good">Good (G)</option>
+                        <option value="Fair (F)" data-i18n="condition.fair">Fair (F)</option>
+                        <option value="Poor (P)" data-i18n="condition.poor">Poor (P)</option>
                     </select>
                 </div>
                 <div class="advanced-filter-group">
                     <label class="filter-label">
-                        <input type="checkbox" id="filterHasCover" class="filter-checkbox"> Has Cover Art
+                        <input type="checkbox" id="filterHasCover" class="filter-checkbox"> <span data-i18n="filter.hasCover">Has Cover Art</span>
                     </label>
                 </div>
-                <button class="btn btn-ghost btn-sm" id="btnClearFilters" title="Clear all filters">
+                <button class="btn btn-ghost btn-sm" id="btnClearFilters" title="Clear all filters" data-i18n="filter.clearAll" data-i18n-title="filter.clearAll">
                     &#10005; Clear All
                 </button>
             </div>
@@ -114,13 +115,13 @@
 
     <!-- ── Records Grid ──────────────────────────────────── -->
     <main class="main-content">
-        <section class="dashboard-strip hidden" id="dashboardStrip" aria-label="Collection summary"></section>
+        <section class="dashboard-strip hidden" id="dashboardStrip" aria-label="Collection summary" data-i18n-aria-label="view.summary"></section>
         <div class="results-header">
             <div class="records-count" id="recordsCount"></div>
             <div id="activeTagFilter" class="active-tag-filter hidden"></div>
-            <div class="view-toggle" role="group" aria-label="View mode">
-                <button class="view-btn active" id="viewGrid" title="Grid view" aria-pressed="true">&#9638; Grid</button>
-                <button class="view-btn" id="viewList" title="List view" aria-pressed="false">&#9776; List</button>
+            <div class="view-toggle" role="group" aria-label="View mode" data-i18n-aria-label="view.mode">
+                <button class="view-btn active" id="viewGrid" title="Grid view" aria-pressed="true" data-i18n="view.grid" data-i18n-title="view.gridTitle">&#9638; Grid</button>
+                <button class="view-btn" id="viewList" title="List view" aria-pressed="false" data-i18n="view.list" data-i18n-title="view.listTitle">&#9776; List</button>
             </div>
         </div>
         <div class="records-grid" id="recordsGrid">
@@ -128,9 +129,9 @@
         </div>
         <div class="empty-state hidden" id="emptyState">
             <span class="empty-icon">&#127925;</span>
-            <h2>No records yet</h2>
-            <p>Start building your collection by adding your first record.</p>
-            <button class="btn btn-primary" id="btnAddEmpty">&#43; Add Your First Record</button>
+            <h2 data-i18n="empty.title">No records yet</h2>
+            <p data-i18n="empty.description">Start building your collection by adding your first record.</p>
+            <button class="btn btn-primary" id="btnAddEmpty" data-i18n="empty.action">&#43; Add Your First Record</button>
         </div>
     </main>
 
@@ -138,25 +139,25 @@
     <div class="modal-overlay hidden" id="modalOverlay">
         <div class="modal">
             <div class="modal-header">
-                <h2 id="modalTitle">Add Record</h2>
-                <button class="btn-close" id="btnCloseModal">&times;</button>
+                <h2 id="modalTitle" data-i18n="record.addTitle">Add Record</h2>
+                <button class="btn-close" id="btnCloseModal" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <form id="recordForm" class="record-form">
                 <input type="hidden" id="recordId">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="artist">Artist <span class="required">*</span></label>
+                        <label for="artist"><span data-i18n="record.artist">Artist</span> <span class="required">*</span></label>
                         <input type="text" id="artist" class="input" required>
                     </div>
                     <div class="form-group">
-                        <label for="album">Album <span class="required">*</span></label>
+                        <label for="album"><span data-i18n="record.album">Album</span> <span class="required">*</span></label>
                         <input type="text" id="album" class="input" required>
                     </div>
                 </div>
                 <div class="lookup-row">
-                    <button type="button" class="btn btn-ghost btn-sm" id="btnLookup">&#128269; Lookup Info</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btnLookup" data-i18n="record.lookup">&#128269; Lookup Info</button>
                     <select id="lookupSource" class="input select select-sm">
-                        <option value="auto">Auto (all sources)</option>
+                        <option value="auto" data-i18n="record.lookupAuto">Auto (all sources)</option>
                         <option value="musicbrainz">MusicBrainz</option>
                         <option value="itunes">iTunes</option>
                         <option value="deezer">Deezer</option>
@@ -166,53 +167,53 @@
                 <div class="lookup-results hidden" id="lookupResults"></div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="year">Year</label>
+                        <label for="year" data-i18n="record.year">Year</label>
                         <input type="number" id="year" class="input" min="1900" max="2030">
                     </div>
                     <div class="form-group">
-                        <label for="genre">Genre</label>
-                        <input type="text" id="genre" class="input" placeholder="e.g. Rock, Jazz, Electronic…">
+                        <label for="genre" data-i18n="record.genre">Genre</label>
+                        <input type="text" id="genre" class="input" placeholder="e.g. Rock, Jazz, Electronic…" data-i18n-placeholder="record.genrePlaceholder">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="format">Format</label>
+                        <label for="format" data-i18n="record.format">Format</label>
                         <select id="format" class="input select">
-                            <option value="Vinyl">Vinyl</option>
-                            <option value="CD">CD</option>
-                            <option value="Cassette">Cassette</option>
-                            <option value="Digital">Digital</option>
+                            <option value="Vinyl" data-i18n="format.vinyl">Vinyl</option>
+                            <option value="CD" data-i18n="format.cd">CD</option>
+                            <option value="Cassette" data-i18n="format.cassette">Cassette</option>
+                            <option value="Digital" data-i18n="format.digital">Digital</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="conditionGrade">Condition</label>
+                        <label for="conditionGrade" data-i18n="record.condition">Condition</label>
                         <select id="conditionGrade" class="input select">
-                            <option value="">— Select —</option>
-                            <option value="Mint (M)" selected>Mint (M)</option>
-                            <option value="Near Mint (NM)">Near Mint (NM)</option>
-                            <option value="Very Good Plus (VG+)">Very Good Plus (VG+)</option>
-                            <option value="Very Good (VG)">Very Good (VG)</option>
-                            <option value="Good (G)">Good (G)</option>
-                            <option value="Fair (F)">Fair (F)</option>
-                            <option value="Poor (P)">Poor (P)</option>
+                            <option value="" data-i18n="record.selectCondition">— Select —</option>
+                            <option value="Mint (M)" data-i18n="condition.mint" selected>Mint (M)</option>
+                            <option value="Near Mint (NM)" data-i18n="condition.nearMint">Near Mint (NM)</option>
+                            <option value="Very Good Plus (VG+)" data-i18n="condition.veryGoodPlus">Very Good Plus (VG+)</option>
+                            <option value="Very Good (VG)" data-i18n="condition.veryGood">Very Good (VG)</option>
+                            <option value="Good (G)" data-i18n="condition.good">Good (G)</option>
+                            <option value="Fair (F)" data-i18n="condition.fair">Fair (F)</option>
+                            <option value="Poor (P)" data-i18n="condition.poor">Poor (P)</option>
                         </select>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="coverUrl">Cover Image URL</label>
+                    <label for="coverUrl" data-i18n="record.coverUrl">Cover Image URL</label>
                     <input type="text" id="coverUrl" class="input" placeholder="https://…">
                 </div>
                 <div class="form-group">
-                    <label for="notes">Notes</label>
-                    <textarea id="notes" class="input textarea" rows="3" placeholder="First pressing, signed copy…"></textarea>
+                    <label for="notes" data-i18n="record.notes">Notes</label>
+                    <textarea id="notes" class="input textarea" rows="3" placeholder="First pressing, signed copy…" data-i18n-placeholder="record.notesPlaceholder"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="tags">Tags / Shelves</label>
-                    <input type="text" id="tags" class="input" placeholder="favorites, to sell, 45rpm (comma-separated)">
+                    <label for="tags" data-i18n="record.tags">Tags / Shelves</label>
+                    <input type="text" id="tags" class="input" placeholder="favorites, to sell, 45rpm (comma-separated)" data-i18n-placeholder="record.tagsPlaceholder">
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-ghost" id="btnCancel">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="btnSave">Save Record</button>
+                    <button type="button" class="btn btn-ghost" id="btnCancel" data-i18n="common.cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnSave" data-i18n="record.save">Save Record</button>
                 </div>
             </form>
         </div>
@@ -222,11 +223,11 @@
     <div class="modal-overlay hidden" id="tracklistOverlay">
         <div class="modal modal-wide">
             <div class="modal-header">
-                <h2 id="tracklistTitle">Track List</h2>
-                <button class="btn-close" id="btnCloseTracklist">&times;</button>
+                <h2 id="tracklistTitle" data-i18n="track.title">Track List</h2>
+                <button class="btn-close" id="btnCloseTracklist" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <div class="tracklist-body" id="tracklistBody">
-                <p class="loading">Loading tracks…</p>
+                <p class="loading" data-i18n="track.loading">Loading tracks…</p>
             </div>
         </div>
     </div>
@@ -235,11 +236,11 @@
     <div class="modal-overlay hidden" id="statsOverlay">
         <div class="modal modal-wide">
             <div class="modal-header">
-                <h2>Collection Statistics</h2>
-                <button class="btn-close" id="btnCloseStats">&times;</button>
+                <h2 data-i18n="stats.title">Collection Statistics</h2>
+                <button class="btn-close" id="btnCloseStats" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <div class="stats-body" id="statsBody">
-                <p class="loading">Loading statistics…</p>
+                <p class="loading" data-i18n="stats.loading">Loading statistics…</p>
             </div>
         </div>
     </div>
@@ -248,11 +249,11 @@
     <div class="modal-overlay hidden" id="discogsOverlay">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h2 id="discogsTitle">Discogs Value</h2>
-                <button class="btn-close" id="btnCloseDiscogs">&times;</button>
+                <h2 id="discogsTitle" data-i18n="value.title">Discogs Value</h2>
+                <button class="btn-close" id="btnCloseDiscogs" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <div class="discogs-body" id="discogsBody">
-                <p class="loading">Looking up value…</p>
+                <p class="loading" data-i18n="value.loading">Looking up value…</p>
             </div>
         </div>
     </div>
@@ -260,21 +261,21 @@
     <!-- ── Multi-Select Toolbar ────────────────────────── -->
     <div class="select-toolbar hidden" id="selectToolbar">
         <span id="selectCount">0 selected</span>
-        <button class="btn btn-danger btn-sm" id="btnDeleteSelected">&#128465; Delete Selected</button>
-        <button class="btn btn-ghost btn-sm" id="btnClearSelection">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="btnDeleteSelected" data-i18n="selection.delete">&#128465; Delete Selected</button>
+        <button class="btn btn-ghost btn-sm" id="btnClearSelection" data-i18n="common.cancel">Cancel</button>
     </div>
 
     <!-- ── Delete Confirm ────────────────────────────────── -->
     <div class="modal-overlay hidden" id="deleteOverlay">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h2>Delete Record</h2>
-                <button class="btn-close" id="btnCloseDelete">&times;</button>
+                <h2 data-i18n="delete.title">Delete Record</h2>
+                <button class="btn-close" id="btnCloseDelete" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <p class="delete-msg">Are you sure you want to delete <strong id="deleteName"></strong>? This cannot be undone.</p>
             <div class="form-actions">
-                <button class="btn btn-ghost" id="btnCancelDelete">Cancel</button>
-                <button class="btn btn-danger" id="btnConfirmDelete">Delete</button>
+                <button class="btn btn-ghost" id="btnCancelDelete" data-i18n="common.cancel">Cancel</button>
+                <button class="btn btn-danger" id="btnConfirmDelete" data-i18n="common.delete">Delete</button>
             </div>
         </div>
     </div>
@@ -283,28 +284,28 @@
     <div class="modal-overlay hidden" id="importOverlay">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h2>Import from CSV</h2>
-                <button class="btn-close" id="btnCloseImport">&times;</button>
+                <h2 data-i18n="import.title">Import from CSV</h2>
+                <button class="btn-close" id="btnCloseImport" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <div class="import-body">
-                <p class="import-desc">Upload a CSV file with columns:<br>
+                <p class="import-desc"><span data-i18n="import.description">Upload a CSV file with columns:</span><br>
                     <code>artist, album, year, genre, format, condition_grade, notes, cover_url</code>
                 </p>
-                <p class="import-hint">First row should be the header. <a href="#" id="btnDownloadTemplate">Download template</a></p>
+                <p class="import-hint"><span data-i18n="import.headerHint">First row should be the header.</span> <a href="#" id="btnDownloadTemplate" data-i18n="import.downloadTemplate">Download template</a></p>
                 <div class="drop-zone" id="dropZone">
                     <span class="drop-icon">&#128196;</span>
-                    <p>Drag &amp; drop a CSV file here<br>or click to browse</p>
+                    <p data-i18n="import.drop">Drag &amp; drop a CSV file here or click to browse</p>
                     <input type="file" id="csvFileInput" accept=".csv,text/csv" class="hidden">
                 </div>
                 <div class="import-preview hidden" id="importPreview">
-                    <h3 id="previewTitle">Preview</h3>
+                    <h3 id="previewTitle" data-i18n="import.preview">Preview</h3>
                     <div class="preview-table-wrap">
                         <table class="preview-table" id="previewTable"></table>
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-ghost" id="btnCancelImport">Cancel</button>
-                    <button class="btn btn-primary hidden" id="btnConfirmImport">Import Records</button>
+                    <button class="btn btn-ghost" id="btnCancelImport" data-i18n="common.cancel">Cancel</button>
+                    <button class="btn btn-primary hidden" id="btnConfirmImport" data-i18n="import.records">Import Records</button>
                 </div>
             </div>
         </div>
@@ -314,7 +315,7 @@
     <div class="toast hidden" id="toast"></div>
 
     <footer class="app-footer">
-        <p>&copy; 2026 My Records Collection · <a href="help.html">Help</a> · <a href="#" id="footerDisclaimer">Disclaimer</a> · MIT &amp; CC0</p>
+        <p>&copy; 2026 <span data-i18n="app.title">My Records Collection</span> · <a href="help.html" data-i18n="common.help">Help</a> · <a href="#" id="footerDisclaimer" data-i18n="common.disclaimer">Disclaimer</a> · MIT &amp; CC0</p>
     </footer>
 
     <!-- External libraries -->
@@ -322,27 +323,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js" integrity="sha384-FcQlsUOd0TJjROrBxhJdUhXTUgNJQxTMcxZe6nHbaEfFL1zjQ+bq/uRoBQxb0KMo" crossorigin="anonymous"></script>
 
     <!-- Auth (must load first: installs session gate + CSRF) -->
-    <script src="js/legal.js?v=20260827170000"></script>
-    <script src="js/auth-client.js?v=20260827200000"></script>
-    <script src="js/admin.js?v=20260906190000"></script>
+    <script src="js/legal.js?v=20260907020000"></script>
+    <script src="js/auth-client.js?v=20260907020000"></script>
+    <script src="js/admin.js?v=20260907020000"></script>
 
     <!-- Priority 1 modules -->
-    <script src="js/theme.js?v=20260827130000"></script>
-    <script src="js/dashboard.js?v=20260906200000"></script>
-    <script src="js/backup.js?v=20260827140000"></script>
+    <script src="js/theme.js?v=20260907160000"></script>
+    <script src="js/dashboard.js?v=20260907020000"></script>
+    <script src="js/backup.js?v=20260907020000"></script>
     <script src="js/enhanced-search.js?v=20260827113000"></script>
-    <script src="js/keyboard-nav.js?v=20260827113000"></script>
+    <script src="js/keyboard-nav.js?v=20260907020000"></script>
     <script src="js/loading-states.js?v=20260827113000"></script>
     <script src="js/toast-notifications.js?v=20260827113000"></script>
     
     <!-- Priority 2 modules -->
-    <script src="js/record-detail.js?v=20260906200000"></script>
-    <script src="js/analytics.js?v=20260906200000"></script>
-    <script src="js/wishlist.js?v=20260906200000"></script>
-    <script src="js/listening-sessions.js?v=20260906200000"></script>
+    <script src="js/record-detail.js?v=20260907020000"></script>
+    <script src="js/analytics.js?v=20260907020000"></script>
+    <script src="js/wishlist.js?v=20260907020000"></script>
+    <script src="js/listening-sessions.js?v=20260907020000"></script>
     
     <!-- Main application -->
-    <script src="js/app.js?v=20260906200000"></script>
+    <script src="js/app.js?v=20260907020000"></script>
     <script src="js/init.js?v=20260827160000"></script>
 </body>
 </html>

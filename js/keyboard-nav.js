@@ -385,77 +385,77 @@ function createShortcutsHelpModal() {
     overlay.innerHTML = `
         <div class="modal modal-wide">
             <div class="modal-header">
-                <h2>⌨️ Keyboard Shortcuts</h2>
-                <button class="btn-close" id="btnCloseShortcuts">&times;</button>
+                <h2>⌨️ <span data-i18n="shortcuts.title">Keyboard Shortcuts</span></h2>
+                <button class="btn-close" id="btnCloseShortcuts" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
             </div>
             <div style="padding: 1.25rem;">
                 <div class="shortcuts-grid">
                     <div class="shortcuts-section">
-                        <h3>Global Shortcuts</h3>
+                        <h3 data-i18n="shortcuts.global">Global Shortcuts</h3>
                         <div class="shortcut-item">
                             <kbd>Ctrl</kbd> + <kbd>K</kbd>
-                            <span>Focus search</span>
+                            <span data-i18n="shortcuts.focusSearch">Focus search</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>N</kbd>
-                            <span>Add new record</span>
+                            <span data-i18n="shortcuts.addRecord">Add new record</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>S</kbd>
-                            <span>Open statistics</span>
+                            <span data-i18n="shortcuts.openStats">Open statistics</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>E</kbd>
-                            <span>Export to CSV</span>
+                            <span data-i18n="shortcuts.exportCsv">Export to CSV</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>I</kbd>
-                            <span>Import from CSV</span>
+                            <span data-i18n="shortcuts.importCsv">Import from CSV</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>?</kbd>
-                            <span>Show this help</span>
+                            <span data-i18n="shortcuts.showHelp">Show this help</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>Esc</kbd>
-                            <span>Close modals</span>
+                            <span data-i18n="shortcuts.closeModals">Close modals</span>
                         </div>
                     </div>
                     
                     <div class="shortcuts-section">
-                        <h3>Grid Navigation</h3>
+                        <h3 data-i18n="shortcuts.grid">Grid Navigation</h3>
                         <div class="shortcut-item">
                             <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd>
-                            <span>Navigate cards</span>
+                            <span data-i18n="shortcuts.navigate">Navigate cards</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>Enter</kbd>
-                            <span>Open focused card</span>
+                            <span data-i18n="shortcuts.openCard">Open focused card</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>Space</kbd>
-                            <span>Select/deselect card</span>
+                            <span data-i18n="shortcuts.toggleCard">Select/deselect card</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>Delete</kbd>
-                            <span>Delete selected/focused</span>
+                            <span data-i18n="shortcuts.deleteCard">Delete selected/focused</span>
                         </div>
                     </div>
                     
                     <div class="shortcuts-section">
-                        <h3>Selection</h3>
+                        <h3 data-i18n="shortcuts.selection">Selection</h3>
                         <div class="shortcut-item">
                             <kbd>Ctrl</kbd> + <kbd>A</kbd>
-                            <span>Select all records</span>
+                            <span data-i18n="shortcuts.selectAll">Select all records</span>
                         </div>
                         <div class="shortcut-item">
                             <kbd>Ctrl</kbd> + <kbd>D</kbd>
-                            <span>Deselect all</span>
+                            <span data-i18n="shortcuts.deselectAll">Deselect all</span>
                         </div>
                     </div>
                 </div>
                 
-                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-secondary);">
+                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-secondary);" data-i18n-html="shortcuts.tip">
                     <strong style="color: var(--accent);">💡 Pro Tip:</strong> Most shortcuts work when you're not typing in an input field. Press <kbd>Ctrl</kbd>+<kbd>K</kbd> from anywhere to quickly search!
                 </div>
             </div>
@@ -489,6 +489,7 @@ function enhanceTabNavigation() {
     const skipLink = document.createElement('a');
     skipLink.href = '#recordsGrid';
     skipLink.className = 'skip-link';
+    skipLink.dataset.i18n = 'nav.skipRecords';
     skipLink.textContent = 'Skip to records';
     skipLink.addEventListener('click', (e) => {
         e.preventDefault();

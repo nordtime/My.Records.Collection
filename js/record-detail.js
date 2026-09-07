@@ -5,6 +5,9 @@
 
 (function() {
     'use strict';
+    const tr = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     const RecordDetail = {
         currentRecord: null,
@@ -30,7 +33,7 @@
             modal.innerHTML = `
                 <div class="detail-modal-content">
                     <!-- Close button -->
-                    <button class="detail-close" aria-label="Close detail view">
+                    <button class="detail-close" aria-label="Close detail view" data-i18n-aria-label="detail.close">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -42,20 +45,20 @@
                         <!-- Left column: Cover art -->
                         <div class="detail-cover-section">
                             <div class="detail-cover-wrapper">
-                                <img class="detail-cover-img" alt="Album cover" />
-                                <button class="cover-zoom-btn" aria-label="Zoom cover art">
+                                <img class="detail-cover-img" alt="Album cover" data-i18n-aria-label="detail.cover" />
+                                <button class="cover-zoom-btn" aria-label="Zoom cover art" data-i18n-aria-label="detail.zoom">
                                     🔍
                                 </button>
                             </div>
                             <div class="detail-quick-actions">
                                 <button class="btn btn-primary detail-play-btn">
-                                    <span class="btn-icon">📀</span> Mark as Played
+                                    <span class="btn-icon">📀</span> <span data-i18n="record.markPlayed">Mark as Played</span>
                                 </button>
                                 <button class="btn btn-ghost detail-edit-btn">
-                                    <span class="btn-icon">✎</span> Edit
+                                    <span class="btn-icon">✎</span> <span data-i18n="common.edit">Edit</span>
                                 </button>
                                 <button class="btn btn-danger detail-delete-btn">
-                                    <span class="btn-icon">🗑</span> Delete
+                                    <span class="btn-icon">🗑</span> <span data-i18n="common.delete">Delete</span>
                                 </button>
                             </div>
                         </div>
@@ -64,8 +67,8 @@
                         <div class="detail-info-section">
                             <!-- Header -->
                             <div class="detail-header">
-                                <h1 class="detail-album"></h1>
-                                <h2 class="detail-artist"></h2>
+                                <h1 class="detail-album" dir="auto"></h1>
+                                <h2 class="detail-artist" dir="auto"></h2>
                             </div>
 
                             <!-- Rating -->
@@ -77,15 +80,15 @@
                                     <span class="star" data-value="4">★</span>
                                     <span class="star" data-value="5">★</span>
                                 </div>
-                                <span class="rating-text">Not rated</span>
+                                <span class="rating-text" data-i18n="detail.notRated">Not rated</span>
                             </div>
 
                             <!-- Metadata tabs -->
                             <div class="detail-tabs">
-                                <button class="detail-tab active" data-tab="info">Information</button>
-                                <button class="detail-tab" data-tab="tracks">Tracks</button>
-                                <button class="detail-tab" data-tab="history">History</button>
-                                <button class="detail-tab" data-tab="related">Related</button>
+                                <button class="detail-tab active" data-tab="info" data-i18n="detail.information">Information</button>
+                                <button class="detail-tab" data-tab="tracks" data-i18n="detail.tracks">Tracks</button>
+                                <button class="detail-tab" data-tab="history" data-i18n="detail.history">History</button>
+                                <button class="detail-tab" data-tab="related" data-i18n="detail.related">Related</button>
                             </div>
 
                             <!-- Tab content -->
@@ -94,60 +97,60 @@
                                 <div class="tab-pane active" data-pane="info">
                                     <div class="detail-metadata">
                                         <div class="metadata-row">
-                                            <span class="metadata-label">Format</span>
+                                            <span class="metadata-label" data-i18n="record.format">Format</span>
                                             <span class="metadata-value detail-format"></span>
                                         </div>
                                         <div class="metadata-row">
-                                            <span class="metadata-label">Year</span>
+                                            <span class="metadata-label" data-i18n="record.year">Year</span>
                                             <span class="metadata-value detail-year"></span>
                                         </div>
                                         <div class="metadata-row">
-                                            <span class="metadata-label">Genre</span>
+                                            <span class="metadata-label" data-i18n="record.genre">Genre</span>
                                             <span class="metadata-value detail-genre"></span>
                                         </div>
                                         <div class="metadata-row">
-                                            <span class="metadata-label">Condition</span>
+                                            <span class="metadata-label" data-i18n="record.condition">Condition</span>
                                             <span class="metadata-value detail-condition"></span>
                                         </div>
                                         <div class="metadata-row">
-                                            <span class="metadata-label">Date Added</span>
+                                            <span class="metadata-label" data-i18n="detail.dateAdded">Date Added</span>
                                             <span class="metadata-value detail-date-added"></span>
                                         </div>
                                         <div class="metadata-row purchase-row">
-                                            <span class="metadata-label">Purchase Info</span>
+                                            <span class="metadata-label" data-i18n="detail.purchaseInfo">Purchase Info</span>
                                             <span class="metadata-value detail-purchase"></span>
                                         </div>
                                         <div class="metadata-row value-row">
-                                            <span class="metadata-label">Discogs Value</span>
+                                            <span class="metadata-label" data-i18n="record.discogsValue">Discogs Value</span>
                                             <span class="metadata-value detail-discogs-value"></span>
                                         </div>
                                         <div class="metadata-row plays-row">
-                                            <span class="metadata-label">Play Count</span>
+                                            <span class="metadata-label" data-i18n="detail.playCount">Play Count</span>
                                             <span class="metadata-value detail-play-count"></span>
                                         </div>
                                         <div class="metadata-row notes-row">
-                                            <span class="metadata-label">Notes</span>
-                                            <div class="metadata-value detail-notes"></div>
+                                            <span class="metadata-label" data-i18n="record.notes">Notes</span>
+                                            <div class="metadata-value detail-notes" dir="auto"></div>
                                         </div>
                                     </div>
 
                                     <!-- Tags / shelves editor -->
                                     <div class="detail-tags-section">
-                                        <span class="metadata-label">Tags / Shelves</span>
+                                        <span class="metadata-label" data-i18n="record.tags">Tags / Shelves</span>
                                         <div class="detail-tags"></div>
                                         <form class="tag-add-form" autocomplete="off">
-                                            <input type="text" class="input tag-add-input" placeholder="Add a tag…" maxlength="40" aria-label="Add a tag">
-                                            <button type="submit" class="btn btn-ghost btn-sm">+ Add</button>
+                                            <input type="text" class="input tag-add-input" placeholder="Add a tag…" maxlength="40" aria-label="Add a tag" data-i18n-placeholder="detail.addTag" data-i18n-aria-label="detail.addTag">
+                                            <button type="submit" class="btn btn-ghost btn-sm" data-i18n="common.add">+ Add</button>
                                         </form>
                                     </div>
 
                                     <!-- External links -->
                                     <div class="detail-links">
                                         <a class="detail-link discogs-link" target="_blank" rel="noopener">
-                                            <span class="link-icon">🔗</span> View on Discogs
+                                            <span class="link-icon">🔗</span> <span data-i18n="detail.viewDiscogs">View on Discogs</span>
                                         </a>
                                         <a class="detail-link musicbrainz-link" target="_blank" rel="noopener">
-                                            <span class="link-icon">🎵</span> View on MusicBrainz
+                                            <span class="link-icon">🎵</span> <span data-i18n="detail.viewMusicBrainz">View on MusicBrainz</span>
                                         </a>
                                     </div>
                                 </div>
@@ -317,9 +320,9 @@
 
             // Metadata
             modal.querySelector('.detail-format').innerHTML = this.formatBadge(record.format);
-            modal.querySelector('.detail-year').textContent = record.year || 'Unknown';
-            modal.querySelector('.detail-genre').textContent = record.genre || 'Not specified';
-            modal.querySelector('.detail-condition').textContent = record.condition_grade || record.condition || 'Not specified';
+            modal.querySelector('.detail-year').textContent = record.year || tr('common.unknown', {}, 'Unknown');
+            modal.querySelector('.detail-genre').textContent = record.genre || tr('common.notSpecified', {}, 'Not specified');
+            modal.querySelector('.detail-condition').textContent = record.condition_grade || record.condition || tr('common.notSpecified', {}, 'Not specified');
             modal.querySelector('.detail-date-added').textContent = this.formatDate(record.date_added || record.created_at);
 
             // Purchase info
@@ -329,19 +332,19 @@
             if (record.purchase_location) purchaseInfo.push(`Location: ${record.purchase_location}`);
             modal.querySelector('.detail-purchase').textContent = purchaseInfo.length > 0 
                 ? purchaseInfo.join(' • ') 
-                : 'No purchase info';
+                : tr('detail.noPurchaseInfo', {}, 'No purchase info');
 
             // Discogs value
             const discogsValue = record.discogs_value 
                 ? `$${parseFloat(record.discogs_value).toFixed(2)}` 
-                : 'Not valued';
+                : tr('detail.notValued', {}, 'Not valued');
             modal.querySelector('.detail-discogs-value').textContent = discogsValue;
 
             // Play count
             modal.querySelector('.detail-play-count').textContent = record.play_count || 0;
 
             // Notes
-            modal.querySelector('.detail-notes').textContent = record.notes || 'No notes';
+            modal.querySelector('.detail-notes').textContent = record.notes || tr('detail.noNotes', {}, 'No notes');
 
             // Tags / shelves
             this.renderTags(record);
@@ -374,7 +377,7 @@
          */
         async loadTracks(record) {
             const tracklistEl = document.querySelector('.detail-tracklist');
-            tracklistEl.innerHTML = '<div class="loading-message">Loading tracks…</div>';
+            tracklistEl.innerHTML = `<div class="loading-message">${this.escapeHtml(tr('track.loading', {}, 'Loading tracks…'))}</div>`;
 
             const artist = record.artist || '';
             const album = record.album || '';
@@ -382,7 +385,7 @@
             if (!artist || !album) {
                 tracklistEl.innerHTML = `
                     <p style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                        Track listing not available.
+                        ${this.escapeHtml(tr('track.none', {}, 'Track listing not available.'))}
                     </p>
                 `;
                 return;
@@ -396,7 +399,7 @@
                 if (!data.tracks || !data.tracks.length) {
                     tracklistEl.innerHTML = `
                         <p style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                            No track information found for this release.
+                            ${this.escapeHtml(tr('track.none', {}, 'No track information found for this release.'))}
                         </p>
                     `;
                     return;
@@ -413,14 +416,14 @@
                 data.tracks.forEach((t, i) => {
                     if (hasMultiDisc && t.disc !== lastDisc) {
                         lastDisc = t.disc;
-                        rows += `<div class="track-disc-header">Disc ${esc(t.disc)}</div>`;
+                        rows += `<div class="track-disc-header">${esc(tr('track.disc', { number: t.disc }, `Disc ${t.disc}`))}</div>`;
                     }
                     rows += `
                         <div class="track-row" data-track="${i}">
                             <span class="track-position">${esc(t.position)}</span>
-                            <span class="track-title">${esc(t.title)}</span>
+                            <span class="track-title" dir="auto">${esc(t.title)}</span>
                             <span class="track-duration">${t.duration ? esc(t.duration) : ''}</span>
-                            <button type="button" class="track-lyrics-btn" data-track="${i}" title="View lyrics" aria-label="View lyrics" aria-expanded="false">&#127908;</button>
+                            <button type="button" class="track-lyrics-btn" data-track="${i}" title="${esc(tr('lyrics.view', {}, 'View lyrics'))}" aria-label="${esc(tr('lyrics.view', {}, 'View lyrics'))}" aria-expanded="false">&#127908;</button>
                         </div>
                         <div class="track-lyrics-panel hidden" data-lyrics="${i}"></div>
                     `;
@@ -439,7 +442,7 @@
                 console.error('Failed to load tracks:', error);
                 tracklistEl.innerHTML = `
                     <p style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                        Failed to load track listing.
+                        ${this.escapeHtml(tr('track.failed', {}, 'Failed to load track listing.'))}
                     </p>
                 `;
             }
@@ -463,7 +466,7 @@
             }
 
             panel.classList.remove('hidden');
-            panel.innerHTML = '<div class="track-lyrics-status">Loading lyrics…</div>';
+            panel.innerHTML = `<div class="track-lyrics-status">${this.escapeHtml(tr('lyrics.loading', {}, 'Loading lyrics…'))}</div>`;
             btn.classList.add('active');
             btn.setAttribute('aria-expanded', 'true');
 
@@ -481,7 +484,7 @@
                     this.showTrackLyricsFetch(panel, artist, album, title);
                 }
             } catch {
-                panel.innerHTML = '<div class="track-lyrics-status error">Failed to load lyrics.</div>';
+                panel.innerHTML = `<div class="track-lyrics-status error">${this.escapeHtml(tr('lyrics.failed', {}, 'Failed to load lyrics.'))}</div>`;
             }
         },
 
@@ -498,15 +501,15 @@
             panel.innerHTML = '';
             const msg = document.createElement('div');
             msg.className = 'track-lyrics-status';
-            msg.textContent = 'No lyrics saved yet.';
+            msg.textContent = tr('lyrics.noneSaved', {}, 'No lyrics saved yet.');
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-primary btn-sm';
-            btn.innerHTML = '&#127760; Fetch from web';
+            btn.textContent = `🌐 ${tr('lyrics.fetch', {}, 'Fetch from web')}`;
             btn.addEventListener('click', async () => {
                 const orig = btn.innerHTML;
                 btn.disabled = true;
-                btn.textContent = '⏳ Searching…';
+                btn.textContent = `⏳ ${tr('lyrics.searching', {}, 'Searching…')}`;
                 try {
                     const p = new URLSearchParams({ lyrics: '1', fetch: '1', artist, album, title });
                     const res = await fetch(`api/api.php?${p}`);
@@ -522,12 +525,12 @@
                     } else {
                         btn.disabled = false;
                         btn.innerHTML = orig;
-                        msg.textContent = 'No lyrics found online for this song.';
+                        msg.textContent = tr('lyrics.noneOnline', {}, 'No lyrics found online for this song.');
                     }
                 } catch {
                     btn.disabled = false;
                     btn.innerHTML = orig;
-                    msg.textContent = 'Failed to fetch lyrics from web.';
+                    msg.textContent = tr('lyrics.fetchFailed', {}, 'Failed to fetch lyrics from web.');
                 }
             });
             panel.appendChild(msg);
@@ -539,7 +542,7 @@
          */
         async loadHistory(record) {
             const historyEl = document.querySelector('.detail-history');
-            historyEl.innerHTML = '<div class="loading-message">Loading history...</div>';
+            historyEl.innerHTML = `<div class="loading-message">${this.escapeHtml(tr('detail.historyLoading', {}, 'Loading history...'))}</div>`;
 
             // Fetch listening sessions from backend
             try {
@@ -560,16 +563,16 @@
                 } else {
                     historyEl.innerHTML = `
                         <p style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                            No listening history yet.<br>
-                            <small>Click "Mark as Played" to start tracking</small>
+                            ${this.escapeHtml(tr('sessions.emptyTitle', {}, 'No listening history yet.'))}<br>
+                            <small>${this.escapeHtml(tr('detail.historyHint', {}, 'Click "Mark as Played" to start tracking'))}</small>
                         </p>
                     `;
                 }
             } catch (error) {
                 historyEl.innerHTML = `
                     <p style="color: var(--text-muted); text-align: center; padding: 2rem;">
-                        No listening history yet.<br>
-                        <small>Click "Mark as Played" to start tracking</small>
+                        ${this.escapeHtml(tr('sessions.emptyTitle', {}, 'No listening history yet.'))}<br>
+                        <small>${this.escapeHtml(tr('detail.historyHint', {}, 'Click "Mark as Played" to start tracking'))}</small>
                     </p>
                 `;
             }
@@ -580,7 +583,7 @@
          */
         async loadRelated(record) {
             const relatedEl = document.querySelector('.detail-related');
-            relatedEl.innerHTML = '<div class="loading-message">Loading related records...</div>';
+            relatedEl.innerHTML = `<div class="loading-message">${this.escapeHtml(tr('detail.relatedLoading', {}, 'Loading related records...'))}</div>`;
 
             // This would fetch from window.records (from app.js)
             setTimeout(() => {
@@ -601,8 +604,8 @@
                                         }
                                     </div>
                                     <div class="related-info">
-                                        <div class="related-album">${this.escapeHtml(r.album)}</div>
-                                        <div class="related-artist">${this.escapeHtml(r.artist)}</div>
+                                        <div class="related-album" dir="auto">${this.escapeHtml(r.album)}</div>
+                                        <div class="related-artist" dir="auto">${this.escapeHtml(r.artist)}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -702,13 +705,13 @@
             if (!el) return;
             const tags = this.getTags(record);
             if (!tags.length) {
-                el.innerHTML = '<span class="detail-tags-empty">No tags yet</span>';
+                el.innerHTML = `<span class="detail-tags-empty">${this.escapeHtml(tr('detail.noTags', {}, 'No tags yet'))}</span>`;
                 return;
             }
             el.innerHTML = tags.map(t => `
                 <span class="detail-tag-chip">
-                    <span class="detail-tag-name">${this.escapeHtml(t)}</span>
-                    <button class="detail-tag-remove" data-tag="${this.escapeHtml(t)}" title="Remove tag" aria-label="Remove ${this.escapeHtml(t)}">✕</button>
+                    <span class="detail-tag-name" dir="auto">${this.escapeHtml(t)}</span>
+                    <button class="detail-tag-remove" data-tag="${this.escapeHtml(t)}" title="${this.escapeHtml(tr('detail.removeTag', {}, 'Remove tag'))}" aria-label="${this.escapeHtml(tr('detail.removeTagLabel', { tag: t }, `Remove ${t}`))}">✕</button>
                 </span>
             `).join('');
 
@@ -799,7 +802,7 @@
          */
         updateRatingText(rating) {
             const modal = document.getElementById('record-detail-modal');
-            const text = rating > 0 ? `${rating} star${rating !== 1 ? 's' : ''}` : 'Not rated';
+            const text = rating > 0 ? tr('detail.stars', { count: rating }, `${rating} star${rating !== 1 ? 's' : ''}`) : tr('detail.notRated', {}, 'Not rated');
             modal.querySelector('.rating-text').textContent = text;
         },
 
@@ -858,7 +861,7 @@
                 const data = await response.json();
                 if (data.success) {
                     if (window.ToastNotifications) {
-                        window.ToastNotifications.success('Marked as played!');
+                        window.ToastNotifications.success(tr('detail.playedSuccess', {}, 'Marked as played!'));
                     }
                     // Update play count
                     this.currentRecord.play_count = (this.currentRecord.play_count || 0) + 1;
@@ -894,7 +897,7 @@
         async deleteRecord() {
             const record = this.currentRecord;
             if (!record) return;
-            if (!confirm(`Delete "${record.album}"?`)) return;
+            if (!confirm(tr('delete.confirm', { name: `"${record.album}"` }, `Delete "${record.album}"?`))) return;
 
             this.close();
 
@@ -907,9 +910,9 @@
          * Format date
          */
         formatDate(dateString) {
-            if (!dateString) return 'Unknown';
+            if (!dateString) return tr('common.unknown', {}, 'Unknown');
             const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', { 
+            return date.toLocaleDateString(window.I18n?.locale || 'en-US', {
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
@@ -920,9 +923,9 @@
          * Format date and time
          */
         formatDateTime(dateString) {
-            if (!dateString) return 'Unknown';
+            if (!dateString) return tr('common.unknown', {}, 'Unknown');
             const date = new Date(dateString);
-            return date.toLocaleString('en-US', { 
+            return date.toLocaleString(window.I18n?.locale || 'en-US', {
                 year: 'numeric', 
                 month: 'short', 
                 day: 'numeric',

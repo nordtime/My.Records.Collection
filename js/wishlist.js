@@ -5,6 +5,9 @@
 
 (function() {
     'use strict';
+    const tr = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -44,7 +47,7 @@
             const wishlistBtn = document.createElement('button');
             wishlistBtn.id = 'wishlist-btn';
             wishlistBtn.className = 'btn btn-ghost';
-            wishlistBtn.innerHTML = '<span style="margin-right: 0.5rem;">💝</span> Wishlist';
+            wishlistBtn.innerHTML = '<span style="margin-inline-end: 0.5rem;">💝</span> <span data-i18n="nav.wishlist">Wishlist</span>';
             
             // Insert before stats button
             const statsBtn = document.getElementById('btnStats');
@@ -61,12 +64,12 @@
             modal.innerHTML = `
                 <div class="modal modal-wide">
                     <div class="modal-header">
-                        <h2>💝 Wishlist & Want List</h2>
-                        <button class="btn-close modal-close">&times;</button>
+                        <h2>💝 <span data-i18n="wishlist.title">Wishlist & Want List</span></h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="wishlist-toolbar">
-                            <button class="btn btn-primary" id="add-wish-btn">+ Add to Wishlist</button>
+                            <button class="btn btn-primary" id="add-wish-btn" data-i18n="wishlist.add">+ Add to Wishlist</button>
                             <div class="wishlist-stats">
                                 <span id="wishlistCount">0 items</span>
                                 <span class="stat-divider">•</span>
@@ -86,23 +89,23 @@
             wishFormModal.innerHTML = `
                 <div class="modal">
                     <div class="modal-header">
-                        <h2 id="wishFormTitle">Add to Wishlist</h2>
-                        <button class="btn-close modal-close">&times;</button>
+                        <h2 id="wishFormTitle" data-i18n="wishlist.addTitle">Add to Wishlist</h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">
                         <form id="wishForm">
                             <input type="hidden" id="wish-id" />
                             <div class="form-group">
-                                <label for="wish-artist">Artist *</label>
+                                <label for="wish-artist"><span data-i18n="record.artist">Artist</span> *</label>
                                 <input type="text" id="wish-artist" class="input" required />
                             </div>
                             <div class="form-group">
-                                <label for="wish-album">Album *</label>
+                                <label for="wish-album"><span data-i18n="record.album">Album</span> *</label>
                                 <input type="text" id="wish-album" class="input" required />
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="wish-format">Format</label>
+                                    <label for="wish-format" data-i18n="record.format">Format</label>
                                     <select id="wish-format" class="input select">
                                         <option value="Vinyl">Vinyl</option>
                                         <option value="CD">CD</option>
@@ -111,21 +114,21 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="wish-target-price">Target Price ($)</label>
+                                    <label for="wish-target-price" data-i18n="wishlist.targetPrice">Target Price ($)</label>
                                     <input type="number" id="wish-target-price" class="input" step="0.01" min="0" />
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="wish-discogs-url">Discogs URL</label>
+                                <label for="wish-discogs-url" data-i18n="wishlist.discogsUrl">Discogs URL</label>
                                 <input type="url" id="wish-discogs-url" class="input" placeholder="https://www.discogs.com/..." />
                             </div>
                             <div class="form-group">
-                                <label for="wish-notes">Notes</label>
+                                <label for="wish-notes" data-i18n="record.notes">Notes</label>
                                 <textarea id="wish-notes" class="input" rows="3"></textarea>
                             </div>
                             <div class="form-actions">
-                                <button type="button" class="btn btn-ghost" id="cancelWishBtn">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Save to Wishlist</button>
+                                <button type="button" class="btn btn-ghost" id="cancelWishBtn" data-i18n="common.cancel">Cancel</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="wishlist.save">Save to Wishlist</button>
                             </div>
                         </form>
                     </div>
@@ -218,18 +221,18 @@
                 return sum + (parseFloat(item.target_price) || 0);
             }, 0);
 
-            if (countEl) countEl.textContent = `${count} item${count !== 1 ? 's' : ''}`;
-            if (totalEl) totalEl.textContent = `$${total.toFixed(2)} target`;
+            if (countEl) countEl.textContent = tr('wishlist.items', { count }, `${count} item${count !== 1 ? 's' : ''}`);
+            if (totalEl) totalEl.textContent = tr('wishlist.total', { amount: `$${total.toFixed(2)}` }, `$${total.toFixed(2)} total`);
 
             // Render items
             if (this.wishlistItems.length === 0) {
                 grid.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">💝</div>
-                        <h3>Your wishlist is empty</h3>
-                        <p>Add records you want to buy to track prices and availability</p>
+                        <h3>${escapeHtml(tr('wishlist.emptyTitle', {}, 'Your wishlist is empty'))}</h3>
+                        <p>${escapeHtml(tr('wishlist.emptyText', {}, 'Add records you want to buy to track prices and availability'))}</p>
                         <button class="btn btn-primary" id="addFirstWishItem">
-                            + Add First Item
+                            ${escapeHtml(tr('wishlist.addFirst', {}, '+ Add First Item'))}
                         </button>
                     </div>
                 `;
@@ -250,42 +253,42 @@
                             <span class="badge">${escapeHtml(item.format || 'Vinyl')}</span>
                         </div>
                         <div class="wish-actions">
-                            <button class="icon-btn wish-edit-btn" data-wish-id="${Number(item.id)}" title="Edit">
+                            <button class="icon-btn wish-edit-btn" data-wish-id="${Number(item.id)}" title="${escapeHtml(tr('common.edit', {}, 'Edit'))}">
                                 ✎
                             </button>
-                            <button class="icon-btn wish-mark-btn" data-wish-id="${Number(item.id)}" title="Mark as Purchased">
+                            <button class="icon-btn wish-mark-btn" data-wish-id="${Number(item.id)}" title="${escapeHtml(tr('wishlist.markPurchased', {}, 'Mark as Purchased'))}">
                                 ✓
                             </button>
-                            <button class="icon-btn danger wish-delete-btn" data-wish-id="${Number(item.id)}" title="Delete">
+                            <button class="icon-btn danger wish-delete-btn" data-wish-id="${Number(item.id)}" title="${escapeHtml(tr('common.delete', {}, 'Delete'))}">
                                 🗑
                             </button>
                         </div>
                     </div>
 
                     <div class="wish-info">
-                        <h4 class="wish-album">${escapeHtml(item.album)}</h4>
-                        <p class="wish-artist">${escapeHtml(item.artist)}</p>
+                        <h4 class="wish-album" dir="auto">${escapeHtml(item.album)}</h4>
+                        <p class="wish-artist" dir="auto">${escapeHtml(item.artist)}</p>
                     </div>
 
                     ${item.target_price ? `
                         <div class="wish-price">
-                            <span class="price-label">Target:</span>
+                            <span class="price-label">${escapeHtml(tr('wishlist.target', {}, 'Target:'))}</span>
                             <span class="price-value">$${parseFloat(item.target_price).toFixed(2)}</span>
                         </div>
                     ` : ''}
 
                     ${item.notes ? `
-                        <div class="wish-notes">${escapeHtml(item.notes)}</div>
+                        <div class="wish-notes" dir="auto">${escapeHtml(item.notes)}</div>
                     ` : ''}
 
                     ${discogsUrl ? `
                         <a href="${escapeHtml(discogsUrl)}" target="_blank" rel="noopener noreferrer" class="wish-link">
-                            View on Discogs →
+                            ${escapeHtml(tr('wishlist.viewDiscogs', {}, 'View on Discogs'))} →
                         </a>
                     ` : ''}
 
                     <div class="wish-footer">
-                        <span class="wish-date">Added ${this.formatDate(item.added_at)}</span>
+                        <span class="wish-date">${escapeHtml(tr('wishlist.added', { date: this.formatDate(item.added_at) }, `Added ${this.formatDate(item.added_at)}`))}</span>
                     </div>
                 </div>
             `;
@@ -313,7 +316,7 @@
 
             if (wish) {
                 // Edit mode
-                title.textContent = 'Edit Wishlist Item';
+                title.textContent = tr('wishlist.editTitle', {}, 'Edit Wishlist Item');
                 document.getElementById('wish-id').value = wish.id;
                 document.getElementById('wish-artist').value = wish.artist;
                 document.getElementById('wish-album').value = wish.album;
@@ -323,7 +326,7 @@
                 document.getElementById('wish-notes').value = wish.notes || '';
             } else {
                 // Add mode
-                title.textContent = 'Add to Wishlist';
+                title.textContent = tr('wishlist.addTitle', {}, 'Add to Wishlist');
                 form.reset();
                 document.getElementById('wish-id').value = '';
             }
@@ -350,7 +353,7 @@
 
             if (!artist || !album) {
                 if (window.ToastNotifications) {
-                    window.ToastNotifications.warning('Artist and Album are required');
+                    window.ToastNotifications.warning(tr('wishlist.required', {}, 'Artist and Album are required'));
                 }
                 return;
             }
@@ -376,7 +379,7 @@
                 if (data.success) {
                     if (window.ToastNotifications) {
                         window.ToastNotifications.success(
-                            id ? 'Wishlist item updated!' : 'Added to wishlist!'
+                            id ? tr('wishlist.updated', {}, 'Wishlist item updated!') : tr('wishlist.addedSuccess', {}, 'Added to wishlist!')
                         );
                     }
                     this.closeWishForm();
@@ -387,7 +390,7 @@
             } catch (error) {
                 console.error('Failed to save wish:', error);
                 if (window.ToastNotifications) {
-                    window.ToastNotifications.error('Failed to save wishlist item');
+                    window.ToastNotifications.error(tr('wishlist.saveFailed', {}, 'Failed to save wishlist item'));
                 }
             }
         },
@@ -409,7 +412,7 @@
             const wish = this.wishlistItems.find(w => w.id == wishId);
             if (!wish) return;
 
-            if (!confirm(`Mark "${wish.album}" as purchased and add to collection?`)) return;
+            if (!confirm(tr('wishlist.purchaseConfirm', { album: wish.album }, `Mark "${wish.album}" as purchased and add to collection?`))) return;
 
             try {
                 const response = await fetch('api/api.php', {
@@ -425,7 +428,7 @@
                 
                 if (data.success) {
                     if (window.ToastNotifications) {
-                        window.ToastNotifications.success('Moved to collection!');
+                        window.ToastNotifications.success(tr('wishlist.moved', {}, 'Moved to collection!'));
                     }
                     await this.loadWishlist();
                     
@@ -439,7 +442,7 @@
             } catch (error) {
                 console.error('Failed to mark as purchased:', error);
                 if (window.ToastNotifications) {
-                    window.ToastNotifications.error('Failed to mark as purchased');
+                    window.ToastNotifications.error(tr('wishlist.purchaseFailed', {}, 'Failed to mark as purchased'));
                 }
             }
         },
@@ -451,7 +454,7 @@
             const wish = this.wishlistItems.find(w => w.id == wishId);
             if (!wish) return;
 
-            if (!confirm(`Delete "${wish.album}" from wishlist?`)) return;
+            if (!confirm(tr('wishlist.deleteConfirm', { album: wish.album }, `Delete "${wish.album}" from wishlist?`))) return;
 
             try {
                 const response = await fetch(`api/api.php?wish_id=${wishId}`, {
@@ -462,7 +465,7 @@
                 
                 if (data.success) {
                     if (window.ToastNotifications) {
-                        window.ToastNotifications.success('Removed from wishlist');
+                        window.ToastNotifications.success(tr('wishlist.removed', {}, 'Removed from wishlist'));
                     }
                     await this.loadWishlist();
                 } else {
@@ -471,7 +474,7 @@
             } catch (error) {
                 console.error('Failed to delete wish:', error);
                 if (window.ToastNotifications) {
-                    window.ToastNotifications.error('Failed to delete wishlist item');
+                    window.ToastNotifications.error(tr('wishlist.deleteFailed', {}, 'Failed to delete wishlist item'));
                 }
             }
         },
@@ -480,22 +483,23 @@
          * Format date
          */
         formatDate(dateString) {
-            if (!dateString) return 'Recently';
+            if (!dateString) return tr('common.recently', {}, 'Recently');
             const date = new Date(dateString);
             const now = new Date();
             const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
 
-            if (diffDays === 0) return 'Today';
-            if (diffDays === 1) return 'Yesterday';
-            if (diffDays < 7) return `${diffDays} days ago`;
-            if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-            if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-            return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const relative = new Intl.RelativeTimeFormat(window.I18n?.locale || 'en-US', { numeric: 'auto' });
+            if (diffDays < 7) return relative.format(-diffDays, 'day');
+            if (diffDays < 30) return relative.format(-Math.floor(diffDays / 7), 'week');
+            if (diffDays < 365) return relative.format(-Math.floor(diffDays / 30), 'month');
+            return date.toLocaleDateString(window.I18n?.locale || 'en-US', { month: 'short', year: 'numeric' });
         }
     };
 
     // Expose globally
     window.Wishlist = Wishlist;
+
+    document.addEventListener('rc:languagechange', () => Wishlist.renderWishlist());
 
     // Auto-initialize
     if (document.readyState === 'loading') {

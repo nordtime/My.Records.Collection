@@ -5,6 +5,9 @@
     'use strict';
 
     const API = 'api/api.php';
+    const t = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     function toast(msg, type) {
         if (window.ToastNotifications) {
@@ -26,9 +29,9 @@
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
-            toast('Backup downloaded');
+            toast(t('backup.downloaded', {}, 'Backup downloaded'));
         } catch (e) {
-            toast('Backup failed', 'error');
+            toast(t('backup.failed', {}, 'Backup failed'), 'error');
         }
     }
 
@@ -37,14 +40,14 @@
         try {
             json = JSON.parse(await file.text());
         } catch (e) {
-            toast('Invalid JSON file', 'error');
+            toast(t('backup.invalidJson', {}, 'Invalid JSON file'), 'error');
             return;
         }
         if (!json || !Array.isArray(json.records)) {
-            toast('Not a valid backup file', 'error');
+            toast(t('backup.invalidFile', {}, 'Not a valid backup file'), 'error');
             return;
         }
-        if (!confirm(`Restore ${json.records.length} records from this backup? Existing duplicates will be skipped.`)) {
+        if (!confirm(t('backup.restoreConfirm', { count: json.records.length }, `Restore ${json.records.length} records from this backup? Existing duplicates will be skipped.`))) {
             return;
         }
         try {
@@ -55,11 +58,11 @@
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.message || 'Restore failed');
-            toast(`Imported ${data.records_imported} records (${data.records_skipped} skipped)`);
+            toast(t('backup.imported', { imported: data.records_imported, skipped: data.records_skipped }, `Imported ${data.records_imported} records (${data.records_skipped} skipped)`));
             if (window.triggerRecordReload) window.triggerRecordReload();
             if (window.CollectionDashboard) window.CollectionDashboard.load();
         } catch (e) {
-            toast('Restore failed', 'error');
+            toast(t('backup.failed', {}, 'Restore failed'), 'error');
         }
     }
 

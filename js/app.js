@@ -6,6 +6,9 @@
 
     const API = 'api/api.php';
     const COVER_API = 'api/cover.php';
+    const t = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback.replace(/\{(\w+)\}/g, (match, name) => values[name] ?? match);
 
     // ── DOM refs ────────────────────────────────────────────
     const $grid         = document.getElementById('recordsGrid');
@@ -61,6 +64,13 @@
         loadDefaultView();
         loadFilterOptions().then(() => loadRecords());
         bindEvents();
+    });
+
+    document.addEventListener('rc:languagechange', () => {
+        loadFilterOptions();
+        renderRecords(currentRecords);
+        updateActiveTagUI();
+        updateSelectToolbar();
     });
 
     // ── Events ──────────────────────────────────────────────
@@ -134,7 +144,7 @@
             $dropZone.classList.remove('drop-active');
             const file = e.dataTransfer.files[0];
             if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) parseCsvFile(file);
-            else showToast('Please drop a .csv file.', 'error');
+            else showToast(t('import.dropCsv', {}, 'Please drop a .csv file.'), 'error');
         });
         document.getElementById('btnDownloadTemplate').addEventListener('click', e => {
             e.preventDefault();
@@ -303,7 +313,7 @@
 
         $empty.classList.add('hidden');
         $grid.classList.remove('hidden');
-        $count.textContent = `${records.length} record${records.length !== 1 ? 's' : ''}`;
+        $count.textContent = t('record.count', { count: records.length }, `${records.length} record${records.length !== 1 ? 's' : ''}`);
 
         $grid.innerHTML = records.map(r => {
             const safeCoverUrl = safeImageUrl(r.cover_url);
@@ -314,35 +324,35 @@
             return `
             <div class="record-card${isSelected ? ' selected' : ''}" data-id="${r.id}">
                 <div class="card-cover">
-                    <input type="checkbox" class="card-select" data-id="${r.id}" ${isSelected ? 'checked' : ''} title="Select for bulk actions">
+                    <input type="checkbox" class="card-select" data-id="${r.id}" ${isSelected ? 'checked' : ''} title="${escHtml(t('record.select', {}, 'Select for bulk actions'))}">
                     <img class="record-img" src="${coverSrc}" alt="${escHtml(r.album)}" loading="lazy" data-record-id="${r.id}" data-is-selected="${isSelected}">
                 </div>
                 <div class="card-body">
-                    <div class="card-artist">${escHtml(r.artist)}</div>
-                    <div class="card-album">${escHtml(r.album)}</div>
+                    <div class="card-artist" dir="auto">${escHtml(r.artist)}</div>
+                    <div class="card-album" dir="auto">${escHtml(r.album)}</div>
                     <div class="card-meta">
                         ${r.year ? `<span class="badge">${r.year}</span>` : ''}
                         ${r.genre ? `<span class="badge badge-genre">${escHtml(r.genre)}</span>` : ''}
                         <span class="badge">${escHtml(r.format)}</span>
                         ${r.condition_grade ? `<span class="badge badge-condition">${escHtml(r.condition_grade)}</span>` : ''}
-                        ${r.rating > 0 ? `<span class="badge badge-rating" title="Your rating">★ ${r.rating}</span>` : ''}
-                        ${r.play_count > 0 ? `<span class="badge badge-plays" title="Times played">📀 ${r.play_count}</span>` : ''}
-                        ${r.discogs_value ? `<span class="badge badge-value" title="Discogs value">$${parseFloat(r.discogs_value).toFixed(0)}</span>` : ''}
+                        ${r.rating > 0 ? `<span class="badge badge-rating" title="${escHtml(t('record.rating', {}, 'Your rating'))}">★ ${r.rating}</span>` : ''}
+                        ${r.play_count > 0 ? `<span class="badge badge-plays" title="${escHtml(t('record.timesPlayed', {}, 'Times played'))}">📀 ${r.play_count}</span>` : ''}
+                        ${r.discogs_value ? `<span class="badge badge-value" title="${escHtml(t('record.discogsValue', {}, 'Discogs value'))}">$${parseFloat(r.discogs_value).toFixed(0)}</span>` : ''}
                     </div>
                     <div class="card-tags" data-id="${r.id}">
                         <span class="card-tags-chips">${tagChipsHtml(r)}</span>
                         <div class="tag-dropdown">
-                            <button class="tag-dropdown-btn" data-id="${r.id}" aria-haspopup="true" aria-expanded="false" title="Add or remove tags">🏷️<span class="tag-caret">▾</span></button>
+                            <button class="tag-dropdown-btn" data-id="${r.id}" aria-haspopup="true" aria-expanded="false" title="${escHtml(t('record.manageTags', {}, 'Add or remove tags'))}">🏷️<span class="tag-caret">▾</span></button>
                         </div>
                     </div>
-                    ${r.notes ? `<div class="card-notes">${escHtml(r.notes)}</div>` : ''}
+                    ${r.notes ? `<div class="card-notes" dir="auto">${escHtml(r.notes)}</div>` : ''}
                 </div>
                 <div class="card-actions">
-                    <a class="btn btn-ghost btn-sm btn-spotify" href="https://open.spotify.com/search/${encodeURIComponent(r.artist + ' ' + r.album)}" target="_blank" rel="noopener noreferrer" title="Find on Spotify"><svg class="spotify-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></a>
-                    <button class="btn btn-ghost btn-sm btn-played" data-id="${r.id}" title="Mark as played">&#128191;</button>
-                    <button class="btn btn-ghost btn-sm btn-value" data-id="${r.id}" title="Discogs Value">&#128176; Value</button>
-                    <button class="btn btn-ghost btn-sm btn-edit" data-id="${r.id}" title="Edit">&#9998; Edit</button>
-                    <button class="btn btn-ghost btn-sm btn-delete" data-id="${r.id}" title="Delete">&#128465; Delete</button>
+                    <a class="btn btn-ghost btn-sm btn-spotify" href="https://open.spotify.com/search/${encodeURIComponent(r.artist + ' ' + r.album)}" target="_blank" rel="noopener noreferrer" title="${escHtml(t('record.findSpotify', {}, 'Find on Spotify'))}"><svg class="spotify-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></a>
+                    <button class="btn btn-ghost btn-sm btn-played" data-id="${r.id}" title="${escHtml(t('record.markPlayed', {}, 'Mark as played'))}">&#128191;</button>
+                    <button class="btn btn-ghost btn-sm btn-value" data-id="${r.id}" title="${escHtml(t('record.discogsValue', {}, 'Discogs Value'))}">&#128176; ${escHtml(t('value.title', {}, 'Value'))}</button>
+                    <button class="btn btn-ghost btn-sm btn-edit" data-id="${r.id}" title="${escHtml(t('common.edit', {}, 'Edit'))}">&#9998; ${escHtml(t('common.edit', {}, 'Edit'))}</button>
+                    <button class="btn btn-ghost btn-sm btn-delete" data-id="${r.id}" title="${escHtml(t('common.delete', {}, 'Delete'))}">&#128465; ${escHtml(t('common.delete', {}, 'Delete'))}</button>
                 </div>
             </div>
         `}).join('');
@@ -375,7 +385,7 @@
             img.addEventListener('error', function() {
                 const recordId = this.dataset.recordId;
                 const isSelected = this.dataset.isSelected === 'true';
-                this.parentElement.innerHTML = `<input type="checkbox" class="card-select" data-id="${recordId}" ${isSelected ? 'checked' : ''} title="Select for bulk actions"><span class="cover-placeholder">&#127926;</span>`;
+                this.parentElement.innerHTML = `<input type="checkbox" class="card-select" data-id="${recordId}" ${isSelected ? 'checked' : ''} title="${escHtml(t('record.select', {}, 'Select for bulk actions'))}"><span class="cover-placeholder">&#127926;</span>`;
             });
         });
 
@@ -453,7 +463,7 @@
             tagPopover = document.createElement('div');
             tagPopover.className = 'tag-dropdown-menu hidden';
             tagPopover.setAttribute('role', 'menu');
-            tagPopover.setAttribute('aria-label', 'Assign tags');
+            tagPopover.setAttribute('aria-label', t('tag.assign', {}, 'Assign tags'));
             document.body.appendChild(tagPopover);
         }
         return tagPopover;
@@ -505,8 +515,8 @@
         }).join('');
         menu.innerHTML = `<div class="tag-menu-list">${list}</div>`
             + `<div class="tag-menu-add">`
-            + `<input type="text" class="tag-new-input" placeholder="New tag…" maxlength="40" aria-label="New tag">`
-            + `<button type="button" class="btn btn-sm btn-primary tag-new-btn">Add</button></div>`;
+            + `<input type="text" class="tag-new-input" placeholder="${escHtml(t('tag.new', {}, 'New tag…'))}" maxlength="40" aria-label="${escHtml(t('tag.new', {}, 'New tag'))}">`
+            + `<button type="button" class="btn btn-sm btn-primary tag-new-btn">${escHtml(t('common.add', {}, 'Add'))}</button></div>`;
         menu.querySelectorAll('input[type="checkbox"]').forEach(cb =>
             cb.addEventListener('change', e => {
                 e.stopPropagation();
@@ -556,9 +566,9 @@
                 const chipsEl = card && card.querySelector('.card-tags-chips');
                 if (chipsEl) { chipsEl.innerHTML = tagChipsHtml(record); bindTagChips(card); }
             } else {
-                showToast((data && data.message) || 'Could not update tags', 'error');
+                showToast((data && data.message) || t('tag.updateFailed', {}, 'Could not update tags'), 'error');
             }
-        } catch { showToast('Network error while saving tags', 'error'); }
+        } catch { showToast(t('tag.networkFailed', {}, 'Network error while saving tags'), 'error'); }
     }
 
     // Close any open tag menu when clicking elsewhere, scrolling the page, or resizing
@@ -586,7 +596,8 @@
         const el = document.getElementById('activeTagFilter');
         if (!el) return;
         if (activeTag) {
-            el.innerHTML = `<span class="active-tag-pill">🏷️ ${escHtml(activeTag)} <button class="active-tag-clear" title="Clear tag filter" aria-label="Clear tag filter">✕</button></span>`;
+            const clearLabel = escHtml(t('tag.clearFilter', {}, 'Clear tag filter'));
+            el.innerHTML = `<span class="active-tag-pill">🏷️ <bdi>${escHtml(activeTag)}</bdi> <button class="active-tag-clear" title="${clearLabel}" aria-label="${clearLabel}">✕</button></span>`;
             el.classList.remove('hidden');
             const clearBtn = el.querySelector('.active-tag-clear');
             if (clearBtn) clearBtn.addEventListener('click', clearActiveTag);
@@ -600,7 +611,7 @@
     function spinRandom() {
         const pool = window.records || [];
         if (!pool.length) {
-            showToast('No records to pick from', 'error');
+            showToast(t('record.noRandom', {}, 'No records to pick from'), 'error');
             return;
         }
         const r = pool[Math.floor(Math.random() * pool.length)];
@@ -633,15 +644,15 @@
                     } else {
                         badge = document.createElement('span');
                         badge.className = 'badge badge-plays';
-                        badge.title = 'Times played';
+                        badge.title = t('record.timesPlayed', {}, 'Times played');
                         badge.textContent = `📀 ${r.play_count}`;
                         card.appendChild(badge);
                     }
                 }
             }
-            showToast('Marked as played', 'success');
+            showToast(t('record.markedPlayed', {}, 'Marked as played'), 'success');
         } catch (err) {
-            showToast('Could not log play', 'error');
+            showToast(t('record.playFailed', {}, 'Could not log play'), 'error');
         }
     }
 
@@ -654,7 +665,7 @@
             sort:   $sort.value,
         };
         localStorage.setItem(DEFAULT_VIEW_KEY, JSON.stringify(state));
-        showToast('Default view saved!', 'success');
+        showToast(t('record.defaultSaved', {}, 'Default view saved!'), 'success');
         $btnSetDefault.classList.add('btn-default-saved');
     }
 
@@ -680,14 +691,14 @@
             const meta = await apiFetch(`${API}?meta=1`);
 
             const savedGenre = $genre.dataset.default || $genre.value;
-            const genreOpts  = ['<option value="">All Genres</option>'];
+            const genreOpts  = [`<option value="">${escHtml(t('filter.allGenres', {}, 'All Genres'))}</option>`];
             (meta.genres || []).forEach(g => {
                 genreOpts.push(`<option value="${escHtml(g)}"${g === savedGenre ? ' selected' : ''}>${escHtml(g)}</option>`);
             });
             $genre.innerHTML = genreOpts.join('');
 
             const savedYear = $year.dataset.default || $year.value;
-            const yearOpts  = ['<option value="">All Years</option>'];
+            const yearOpts  = [`<option value="">${escHtml(t('filter.allYears', {}, 'All Years'))}</option>`];
             (meta.years || []).forEach(y => {
                 yearOpts.push(`<option value="${escHtml(y)}"${String(y) === String(savedYear) ? ' selected' : ''}>${escHtml(y)}</option>`);
             });
@@ -699,7 +710,7 @@
 
     // ── Add Modal ───────────────────────────────────────────
     function openAddModal() {
-        $modalTitle.textContent = 'Add Record';
+        $modalTitle.textContent = t('record.addTitle', {}, 'Add Record');
         $form.reset();
         $recordId.value = '';
         $modalOverlay.classList.remove('hidden');
@@ -710,7 +721,7 @@
     async function openEditModal(id) {
         try {
             const r = await apiFetch(`${API}?id=${id}`);
-            $modalTitle.textContent = 'Edit Record';
+            $modalTitle.textContent = t('record.editTitle', {}, 'Edit Record');
             $recordId.value = r.id;
             document.getElementById('artist').value          = r.artist;
             document.getElementById('album').value           = r.album;
@@ -746,13 +757,13 @@
         const $btn     = document.getElementById('btnLookup');
 
         if (!artist && !album) {
-            showToast('Enter an artist and/or album name first.', 'error');
+            showToast(t('lookup.enterFirst', {}, 'Enter an artist and/or album name first.'), 'error');
             return;
         }
 
         $btn.disabled = true;
-        const sourceLabel = source === 'auto' ? 'all sources' : source;
-        $status.textContent = `Searching ${sourceLabel}…`;
+        const sourceLabel = source === 'auto' ? t('lookup.allSources', {}, 'all sources') : source;
+        $status.textContent = t('lookup.searching', { source: sourceLabel }, `Searching ${sourceLabel}…`);
         $status.classList.remove('hidden');
         $results.classList.add('hidden');
 
@@ -767,14 +778,14 @@
             const hits = data.results || [];
 
             if (!hits.length) {
-                $status.textContent = 'No results found on any source.';
+                $status.textContent = t('lookup.none', {}, 'No results found on any source.');
                 $results.classList.add('hidden');
                 return;
             }
 
             const sourceNames = { musicbrainz: 'MusicBrainz', itunes: 'iTunes', deezer: 'Deezer' };
             const srcLabel = sourceNames[data.source] || data.source;
-            $status.textContent = `${hits.length} result${hits.length > 1 ? 's' : ''} from ${srcLabel} — click to fill form`;
+            $status.textContent = t('lookup.results', { count: hits.length, source: srcLabel }, `${hits.length} result${hits.length > 1 ? 's' : ''} from ${srcLabel} — click to fill form`);
             $results.innerHTML = hits.map((r, i) => `
                 <div class="lookup-card" data-idx="${i}">
                     <div class="lookup-cover">
@@ -810,8 +821,8 @@
                     // otherwise clear so the cover proxy can resolve by artist+album
                     document.getElementById('coverUrl').value = r.cover_url || '';
                     $results.classList.add('hidden');
-                    $status.textContent = 'Fields filled ✓';
-                    showToast(`Record info filled from ${r.source || 'lookup'}!`, 'success');
+                    $status.textContent = t('lookup.filled', {}, 'Fields filled ✓');
+                    showToast(t('lookup.filledFrom', { source: r.source || 'lookup' }, `Record info filled from ${r.source || 'lookup'}!`), 'success');
                 });
             });
 
@@ -826,7 +837,7 @@
             });
 
         } catch {
-            $status.textContent = 'Lookup failed.';
+            $status.textContent = t('lookup.failed', {}, 'Lookup failed.');
         } finally {
             $btn.disabled = false;
         }
@@ -838,8 +849,8 @@
         const $title   = document.getElementById('tracklistTitle');
         const $body    = document.getElementById('tracklistBody');
 
-        $title.textContent = 'Track List';
-        $body.innerHTML = '<p class="loading">Looking up tracks…</p>';
+        $title.textContent = t('track.title', {}, 'Track List');
+        $body.innerHTML = `<p class="loading">${escHtml(t('track.lookingUp', {}, 'Looking up tracks…'))}</p>`;
         $overlay.classList.remove('hidden');
 
         try {
@@ -847,7 +858,7 @@
             const data = await apiFetch(`${API}?${params}`);
 
             if (!data.tracks || !data.tracks.length) {
-                $body.innerHTML = '<p class="loading">No track information found for this release.</p>';
+                $body.innerHTML = `<p class="loading">${escHtml(t('track.none', {}, 'No track information found for this release.'))}</p>`;
                 return;
             }
 
@@ -860,9 +871,9 @@
             let html = '<div class="tracklist-header">';
             html += `<img class="tracklist-cover-img" src="${coverSrc}" alt="cover">`;
             html += `<div class="tracklist-info">`;
-            html += `<div class="tracklist-artist">${escHtml(data.artist)}</div>`;
-            html += `<div class="tracklist-album">${escHtml(data.album)}</div>`;
-            html += `<div class="tracklist-count">${data.tracks.length} track${data.tracks.length !== 1 ? 's' : ''}</div>`;
+            html += `<div class="tracklist-artist" dir="auto">${escHtml(data.artist)}</div>`;
+            html += `<div class="tracklist-album" dir="auto">${escHtml(data.album)}</div>`;
+            html += `<div class="tracklist-count">${escHtml(t('track.count', { count: data.tracks.length }, `${data.tracks.length} track${data.tracks.length !== 1 ? 's' : ''}`))}</div>`;
             html += '</div></div>';
 
             // Group by disc if multi-disc
@@ -870,19 +881,20 @@
             let currentDisc = null;
 
             html += '<div class="tracklist-table-wrap"><table class="tracklist-table">';
-            html += '<thead><tr><th class="tl-num">#</th><th>Title</th><th class="tl-dur">Duration</th><th class="tl-lyrics">Lyrics</th></tr></thead><tbody>';
+            html += `<thead><tr><th class="tl-num">#</th><th>${escHtml(t('track.name', {}, 'Title'))}</th><th class="tl-dur">${escHtml(t('track.duration', {}, 'Duration'))}</th><th class="tl-lyrics">${escHtml(t('track.lyrics', {}, 'Lyrics'))}</th></tr></thead><tbody>`;
 
             data.tracks.forEach((t, i) => {
                 if (hasMultiDisc && t.disc !== currentDisc) {
                     currentDisc = t.disc;
-                    const discLabel = t.disc_title ? `Disc ${t.disc}: ${escHtml(t.disc_title)}` : `Disc ${t.disc}`;
+                    const localizedDisc = escHtml(window.I18n ? window.I18n.t('track.disc', { number: t.disc }, `Disc ${t.disc}`) : `Disc ${t.disc}`);
+                    const discLabel = t.disc_title ? `${localizedDisc}: ${escHtml(t.disc_title)}` : localizedDisc;
                     html += `<tr class="disc-divider"><td colspan="4">${discLabel}</td></tr>`;
                 }
                 html += `<tr>`;
                 html += `<td class="tl-num">${escHtml(String(t.position))}</td>`;
-                html += `<td>${escHtml(t.title)}</td>`;
+                html += `<td dir="auto">${escHtml(t.title)}</td>`;
                 html += `<td class="tl-dur">${t.duration || '—'}</td>`;
-                html += `<td class="tl-lyrics"><button type="button" class="lyrics-link lyrics-toggle" data-track="${i}" title="View lyrics" aria-label="View lyrics" aria-expanded="false">&#127908;</button></td>`;
+                html += `<td class="tl-lyrics"><button type="button" class="lyrics-link lyrics-toggle" data-track="${i}" title="${escHtml(window.I18n ? window.I18n.t('lyrics.view', {}, 'View lyrics') : 'View lyrics')}" aria-label="${escHtml(window.I18n ? window.I18n.t('lyrics.view', {}, 'View lyrics') : 'View lyrics')}" aria-expanded="false">&#127908;</button></td>`;
                 html += `</tr>`;
             });
 
@@ -903,7 +915,7 @@
                 btn.addEventListener('click', () => toggleInlineLyrics(btn, data));
             });
         } catch {
-            $body.innerHTML = '<p class="loading">Failed to load track list.</p>';
+            $body.innerHTML = `<p class="loading">${escHtml(t('track.failed', {}, 'Failed to load track list.'))}</p>`;
         }
     }
 
@@ -929,7 +941,7 @@
         cell.colSpan = 4;
         const panel = document.createElement('div');
         panel.className = 'lyrics-panel';
-        panel.innerHTML = '<div class="lyrics-panel-status">Loading lyrics…</div>';
+        panel.innerHTML = `<div class="lyrics-panel-status">${escHtml(t('lyrics.loading', {}, 'Loading lyrics…'))}</div>`;
         cell.appendChild(panel);
         panelRow.appendChild(cell);
         row.after(panelRow);
@@ -950,7 +962,7 @@
                 showInlineLyricsFetch(panel, artist, album, title);
             }
         } catch {
-            panel.innerHTML = '<div class="lyrics-panel-status error">Failed to load lyrics.</div>';
+            panel.innerHTML = `<div class="lyrics-panel-status error">${escHtml(t('lyrics.failed', {}, 'Failed to load lyrics.'))}</div>`;
         }
     }
 
@@ -966,15 +978,15 @@
         panel.innerHTML = '';
         const msg = document.createElement('div');
         msg.className = 'lyrics-panel-status';
-        msg.textContent = 'No lyrics saved yet.';
+        msg.textContent = t('lyrics.noneSaved', {}, 'No lyrics saved yet.');
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn btn-primary btn-sm';
-        btn.innerHTML = '&#127760; Fetch from web';
+        btn.textContent = `🌐 ${t('lyrics.fetch', {}, 'Fetch from web')}`;
         btn.addEventListener('click', async () => {
             const orig = btn.innerHTML;
             btn.disabled = true;
-            btn.textContent = '⏳ Searching…';
+            btn.textContent = `⏳ ${t('lyrics.searching', {}, 'Searching…')}`;
             try {
                 const p = new URLSearchParams({ lyrics: '1', fetch: '1', artist, album, title });
                 const res = await fetch(`${API}?${p}`);
@@ -987,16 +999,16 @@
                         body: JSON.stringify({ artist, album, title, lyrics: d.lyrics }),
                     }).catch(() => {});
                     showInlineLyrics(panel, d.lyrics);
-                    showToast(`Lyrics found via ${d.source || 'web'} ✓`, 'success');
+                    showToast(t('lyrics.found', { source: d.source || 'web' }, `Lyrics found via ${d.source || 'web'} ✓`), 'success');
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = orig;
-                    showToast('No lyrics found online for this song.', 'error');
+                    showToast(t('lyrics.noneOnline', {}, 'No lyrics found online for this song.'), 'error');
                 }
             } catch {
                 btn.disabled = false;
                 btn.innerHTML = orig;
-                showToast('Failed to fetch lyrics from web.', 'error');
+                showToast(t('lyrics.fetchFailed', {}, 'Failed to fetch lyrics from web.'), 'error');
             }
         });
         panel.appendChild(msg);
@@ -1028,7 +1040,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
-                showToast('Record updated!', 'success');
+                showToast(t('record.updated', {}, 'Record updated!'), 'success');
             } else {
                 const url = force ? `${API}?force=1` : API;
                 await apiFetch(url, {
@@ -1036,7 +1048,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
-                showToast('Record added!', 'success');
+                showToast(t('record.added', {}, 'Record added!'), 'success');
             }
             closeModal();
             loadFilterOptions();
@@ -1046,8 +1058,8 @@
             if (!force && err.status === 409) {
                 const dup = err.duplicate;
                 const msg = dup
-                    ? `"${dup.artist} — ${dup.album}" (${dup.format}) already exists. Add anyway?`
-                    : 'A record with the same artist, album, and format already exists. Add anyway?';
+                    ? t('record.duplicateConfirm', dup, `"${dup.artist} — ${dup.album}" (${dup.format}) already exists. Add anyway?`)
+                    : t('record.duplicateConfirmGeneric', {}, 'A record with the same artist, album, and format already exists. Add anyway?');
                 if (confirm(msg)) {
                     handleSave(e, true);
                 }
@@ -1070,7 +1082,7 @@
         deleteTargetId = null;
         deleteTargetIds = [...selectedIds];
         const count = deleteTargetIds.length;
-        $deleteName.textContent = `${count} selected record${count !== 1 ? 's' : ''}`;
+        $deleteName.textContent = t('selection.bulkName', { count }, `${count} selected record${count !== 1 ? 's' : ''}`);
         $deleteOverlay.classList.remove('hidden');
     }
 
@@ -1090,14 +1102,14 @@
                     await apiFetch(`${API}?id=${id}`, { method: 'DELETE' });
                     deleted++;
                 }
-                showToast(`${deleted} record${deleted !== 1 ? 's' : ''} deleted.`, 'success');
+                showToast(t('selection.deleted', { count: deleted }, `${deleted} record${deleted !== 1 ? 's' : ''} deleted.`), 'success');
                 closeDeleteModal();
                 clearSelection();
                 loadFilterOptions();
                 loadRecords();
             } catch {
                 if (deleted > 0) {
-                    showToast(`${deleted} of ${ids.length} deleted (some failed).`, 'error');
+                    showToast(t('selection.partial', { deleted, total: ids.length }, `${deleted} of ${ids.length} deleted (some failed).`), 'error');
                     clearSelection();
                     loadRecords();
                 }
@@ -1109,7 +1121,7 @@
         if (!deleteTargetId) return;
         try {
             await apiFetch(`${API}?id=${deleteTargetId}`, { method: 'DELETE' });
-            showToast('Record deleted.', 'success');
+            showToast(t('record.deleted', {}, 'Record deleted.'), 'success');
             closeDeleteModal();
             loadFilterOptions();
             loadRecords();
@@ -1124,7 +1136,7 @@
         const $count   = document.getElementById('selectCount');
         if (selectedIds.size > 0) {
             $toolbar.classList.remove('hidden');
-            $count.textContent = `${selectedIds.size} selected`;
+            $count.textContent = t('selection.count', { count: selectedIds.size }, `${selectedIds.size} selected`);
         } else {
             $toolbar.classList.add('hidden');
         }
@@ -1157,7 +1169,7 @@
             const text = e.target.result;
             const rows = parseCsv(text);
             if (!rows.length) {
-                showToast('CSV file is empty or has no data rows.', 'error');
+                showToast(t('import.empty', {}, 'CSV file is empty or has no data rows.'), 'error');
                 return;
             }
             csvParsedRows = rows;
@@ -1247,16 +1259,17 @@
         });
         html += '</tbody>';
         $previewTable.innerHTML = html;
-        $previewTitle.textContent = `Preview — ${rows.length} record${rows.length !== 1 ? 's' : ''} found${rows.length > maxPreview ? ` (showing first ${maxPreview})` : ''}`;
+        const limited = rows.length > maxPreview ? t('import.previewLimited', { limit: maxPreview }, ` (showing first ${maxPreview})`) : '';
+        $previewTitle.textContent = t('import.previewCount', { count: rows.length }, `Preview — ${rows.length} record${rows.length !== 1 ? 's' : ''} found`) + limited;
         $importPreview.classList.remove('hidden');
         $btnConfirmImport.classList.remove('hidden');
-        $btnConfirmImport.textContent = `Import ${rows.length} Record${rows.length !== 1 ? 's' : ''}`;
+        $btnConfirmImport.textContent = t('import.actionCount', { count: rows.length }, `Import ${rows.length} Record${rows.length !== 1 ? 's' : ''}`);
     }
 
     async function handleCsvImport() {
         if (!csvParsedRows.length) return;
         $btnConfirmImport.disabled = true;
-        $btnConfirmImport.textContent = 'Importing…';
+        $btnConfirmImport.textContent = t('import.importing', {}, 'Importing…');
 
         try {
             const res = await fetch(`${API}?import=csv`, {
@@ -1266,17 +1279,17 @@
             });
             const data = await res.json();
             if (data.imported > 0) {
-                showToast(`${data.imported} of ${data.total} records imported!`, 'success');
+                showToast(t('import.success', { imported: data.imported, total: data.total }, `${data.imported} of ${data.total} records imported!`), 'success');
                 closeImportModal();
                 loadRecords();
             } else {
-                showToast(data.message || 'No records imported.', 'error');
+                showToast(data.message || t('import.none', {}, 'No records imported.'), 'error');
             }
         } catch (err) {
-            showToast('Import failed: ' + err.message, 'error');
+            showToast(t('import.failed', { message: err.message }, `Import failed: ${err.message}`), 'error');
         } finally {
             $btnConfirmImport.disabled = false;
-            $btnConfirmImport.textContent = 'Import Records';
+            $btnConfirmImport.textContent = t('import.records', {}, 'Import Records');
         }
     }
 
@@ -1296,7 +1309,7 @@
         try {
             const records = await apiFetch(API);
             if (!records.length) {
-                showToast('No records to export.', 'error');
+                showToast(t('export.empty', {}, 'No records to export.'), 'error');
                 return;
             }
 
@@ -1324,7 +1337,7 @@
             a.download = `my-records-backup-${date}.csv`;
             a.click();
             URL.revokeObjectURL(a.href);
-            showToast(`Exported ${records.length} record${records.length !== 1 ? 's' : ''} to CSV.`, 'success');
+            showToast(t('export.success', { count: records.length }, `Exported ${records.length} record${records.length !== 1 ? 's' : ''} to CSV.`), 'success');
         } catch {
             // error already toasted by apiFetch
         }
@@ -1334,8 +1347,10 @@
     // ── Discogs Value ──────────────────────────────────────
     async function openDiscogsValue(id, records, forceRefresh = false) {
         const rec = records.find(r => r.id == id);
-        $discogsTitle.textContent = rec ? `${rec.artist} — ${rec.album}` : 'Discogs Value';
-        $discogsBody.innerHTML = `<p class="loading">${forceRefresh ? 'Refreshing' : 'Looking up'} marketplace value…</p>`;
+        $discogsTitle.textContent = rec ? `${rec.artist} — ${rec.album}` : t('value.title', {}, 'Discogs Value');
+        $discogsBody.innerHTML = `<p class="loading">${escHtml(forceRefresh
+            ? t('value.refreshing', {}, 'Refreshing marketplace value…')
+            : t('value.lookingUpMarket', {}, 'Looking up marketplace value…'))}</p>`;
         $discogsOverlay.classList.remove('hidden');
 
         try {
@@ -1376,7 +1391,7 @@
                     html += '<div class="discogs-prices">';
                     html += `<div class="discogs-price-card discogs-estimated">
                         <div class="discogs-price-value">$${estimatedValue.toFixed(2)}</div>
-                        <div class="discogs-price-label">Estimated Value</div>
+                        <div class="discogs-price-label">${escHtml(t('value.estimated', {}, 'Estimated Value'))}</div>
                         <div class="discogs-price-hint">${escHtml(conditionGrade)}</div>
                     </div>`;
                     html += '</div>';
@@ -1388,19 +1403,19 @@
                 if (d.lowest_price != null) {
                     html += `<div class="discogs-price-card discogs-median">
                         <div class="discogs-price-value">$${Number(d.lowest_price).toFixed(2)}</div>
-                        <div class="discogs-price-label">${onlyLowest ? 'Market Price' : 'Lowest'}</div>
+                        <div class="discogs-price-label">${escHtml(onlyLowest ? t('value.market', {}, 'Market Price') : t('value.lowest', {}, 'Lowest'))}</div>
                     </div>`;
                 }
                 if (d.median_price != null) {
                     html += `<div class="discogs-price-card discogs-median">
                         <div class="discogs-price-value">$${Number(d.median_price).toFixed(2)}</div>
-                        <div class="discogs-price-label">Median</div>
+                        <div class="discogs-price-label">${escHtml(t('value.median', {}, 'Median'))}</div>
                     </div>`;
                 }
                 if (d.highest_price != null) {
                     html += `<div class="discogs-price-card">
                         <div class="discogs-price-value discogs-high">$${Number(d.highest_price).toFixed(2)}</div>
-                        <div class="discogs-price-label">Highest</div>
+                        <div class="discogs-price-label">${escHtml(t('value.highest', {}, 'Highest'))}</div>
                     </div>`;
                 }
                 html += '</div>';
@@ -1408,29 +1423,29 @@
 
             // Details
             html += '<ul class="discogs-details">';
-            if (rec && rec.condition_grade) html += `<li><strong>Condition:</strong> ${escHtml(rec.condition_grade)}</li>`;
-            if (d.num_for_sale)   html += `<li><strong>For Sale:</strong> ${d.num_for_sale} listings</li>`;
-            if (d.label)          html += `<li><strong>Label:</strong> ${escHtml(d.label)}</li>`;
-            if (d.catalog_number) html += `<li><strong>Cat#:</strong> ${escHtml(d.catalog_number)}</li>`;
-            if (d.country)        html += `<li><strong>Country:</strong> ${escHtml(d.country)}</li>`;
-            if (d.format_detail)  html += `<li><strong>Format:</strong> ${escHtml(d.format_detail)}</li>`;
+            if (rec && rec.condition_grade) html += `<li><strong>${escHtml(t('filter.condition', {}, 'Condition:'))}</strong> ${escHtml(rec.condition_grade)}</li>`;
+            if (d.num_for_sale)   html += `<li><strong>${escHtml(t('value.forSale', {}, 'For Sale:'))}</strong> ${escHtml(t('value.listings', { count: d.num_for_sale }, `${d.num_for_sale} listings`))}</li>`;
+            if (d.label)          html += `<li><strong>${escHtml(t('value.label', {}, 'Label:'))}</strong> ${escHtml(d.label)}</li>`;
+            if (d.catalog_number) html += `<li><strong>${escHtml(t('value.catalog', {}, 'Cat#:'))}</strong> ${escHtml(d.catalog_number)}</li>`;
+            if (d.country)        html += `<li><strong>${escHtml(t('value.country', {}, 'Country:'))}</strong> ${escHtml(d.country)}</li>`;
+            if (d.format_detail)  html += `<li><strong>${escHtml(t('value.format', {}, 'Format:'))}</strong> ${escHtml(d.format_detail)}</li>`;
             html += '</ul>';
 
             // Action buttons
             html += '<div class="discogs-actions">';
             if (d.discogs_url) {
-                html += `<a href="${escHtml(d.discogs_url)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm discogs-link">View on Discogs &#8599;</a>`;
+                html += `<a href="${escHtml(d.discogs_url)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm discogs-link">${escHtml(t('value.viewDiscogs', {}, 'View on Discogs'))} &#8599;</a>`;
             }
-            html += `<button class="btn btn-ghost btn-sm btn-refresh-discogs" title="Re-fetch from Discogs">&#8635; Refresh</button>`;
+            html += `<button class="btn btn-ghost btn-sm btn-refresh-discogs" title="${escHtml(t('value.refreshTitle', {}, 'Re-fetch from Discogs'))}">&#8635; ${escHtml(t('value.refresh', {}, 'Refresh'))}</button>`;
             html += '</div>';
 
             if (!hasPrice) {
-                html = '<p class="loading">No marketplace pricing available for this release.</p>';
+                html = `<p class="loading">${escHtml(t('value.none', {}, 'No marketplace pricing available for this release.'))}</p>`;
                 html += '<div class="discogs-actions">';
                 if (d.discogs_url) {
-                    html += `<a href="${escHtml(d.discogs_url)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm discogs-link">View on Discogs &#8599;</a>`;
+                    html += `<a href="${escHtml(d.discogs_url)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm discogs-link">${escHtml(t('value.viewDiscogs', {}, 'View on Discogs'))} &#8599;</a>`;
                 }
-                html += `<button class="btn btn-ghost btn-sm btn-refresh-discogs" title="Re-fetch from Discogs">&#8635; Refresh</button>`;
+                html += `<button class="btn btn-ghost btn-sm btn-refresh-discogs" title="${escHtml(t('value.refreshTitle', {}, 'Re-fetch from Discogs'))}">&#8635; ${escHtml(t('value.refresh', {}, 'Refresh'))}</button>`;
                 html += '</div>';
             }
 
@@ -1442,13 +1457,13 @@
                 $refreshBtn.addEventListener('click', () => openDiscogsValue(id, records, true));
             }
         } catch {
-            $discogsBody.innerHTML = '<p class="loading">Failed to fetch Discogs data.</p>';
+            $discogsBody.innerHTML = `<p class="loading">${escHtml(t('value.failed', {}, 'Failed to fetch Discogs data.'))}</p>`;
         }
     }
 
     // ── Stats ───────────────────────────────────────────────
     async function openStats() {
-        $statsBody.innerHTML = '<p class="loading">Loading statistics…</p>';
+        $statsBody.innerHTML = `<p class="loading">${escHtml(t('stats.loading', {}, 'Loading statistics…'))}</p>`;
         $statsOverlay.classList.remove('hidden');
 
         try {
@@ -1457,15 +1472,15 @@
 
             // Top cards
             html += '<div class="stats-grid">';
-            html += statCard(s.total, 'Total Records');
-            html += statCard(s.by_genre?.length || 0, 'Genres');
-            html += statCard(s.by_format?.length || 0, 'Formats');
+            html += statCard(s.total, t('stats.totalRecords', {}, 'Total Records'));
+            html += statCard(s.by_genre?.length || 0, t('stats.genres', {}, 'Genres'));
+            html += statCard(s.by_format?.length || 0, t('stats.formats', {}, 'Formats'));
             html += '</div>';
 
             // Genre breakdown
             if (s.by_genre?.length) {
                 const max = s.by_genre[0].count;
-                html += '<div class="stats-section"><h3>By Genre</h3><ul class="stats-bar-list">';
+                html += `<div class="stats-section"><h3>${escHtml(t('stats.byGenre', {}, 'By Genre'))}</h3><ul class="stats-bar-list">`;
                 s.by_genre.forEach(g => {
                     const pct = Math.round((g.count / max) * 100);
                     html += `<li class="stats-bar-item">
@@ -1480,7 +1495,7 @@
             // Format breakdown
             if (s.by_format?.length) {
                 const max = s.by_format[0].count;
-                html += '<div class="stats-section"><h3>By Format</h3><ul class="stats-bar-list">';
+                html += `<div class="stats-section"><h3>${escHtml(t('stats.byFormat', {}, 'By Format'))}</h3><ul class="stats-bar-list">`;
                 s.by_format.forEach(f => {
                     const pct = Math.round((f.count / max) * 100);
                     html += `<li class="stats-bar-item">
@@ -1495,7 +1510,7 @@
             // By decade
             if (s.by_decade?.length) {
                 const max = s.by_decade.reduce((m, d) => Math.max(m, d.count), 0);
-                html += '<div class="stats-section"><h3>By Decade</h3><ul class="stats-bar-list">';
+                html += `<div class="stats-section"><h3>${escHtml(t('stats.byDecade', {}, 'By Decade'))}</h3><ul class="stats-bar-list">`;
                 s.by_decade.forEach(d => {
                     const pct = Math.round((d.count / max) * 100);
                     html += `<li class="stats-bar-item">
@@ -1509,7 +1524,7 @@
 
             // Latest additions
             if (s.latest?.length) {
-                html += '<div class="stats-section"><h3>Latest Additions</h3><ul class="stats-latest">';
+                html += `<div class="stats-section"><h3>${escHtml(t('stats.latest', {}, 'Latest Additions'))}</h3><ul class="stats-latest">`;
                 s.latest.forEach(l => {
                     html += `<li><strong>${escHtml(l.artist)}</strong> — ${escHtml(l.album)}</li>`;
                 });
@@ -1519,21 +1534,21 @@
             // Discogs collection value
             if (s.valuation) {
                 const v = s.valuation;
-                html += '<div class="stats-section stats-valuation"><h3>&#128176; Collection Value (Discogs)</h3>';
+                html += `<div class="stats-section stats-valuation"><h3>&#128176; ${escHtml(t('stats.collectionValue', {}, 'Collection Value (Discogs)'))}</h3>`;
                 html += '<div class="stats-grid">';
-                html += statCard('$' + v.total_value.toFixed(0), 'Est. Collection Value');
-                html += statCard('$' + v.avg_price.toFixed(2), 'Avg per Record');
-                html += statCard(v.priced + '/' + s.total, 'Records Priced');
+                html += statCard('$' + v.total_value.toFixed(0), t('stats.estimatedValue', {}, 'Est. Collection Value'));
+                html += statCard('$' + v.avg_price.toFixed(2), t('stats.averageRecord', {}, 'Avg per Record'));
+                html += statCard(v.priced + '/' + s.total, t('stats.recordsPriced', {}, 'Records Priced'));
                 html += '</div></div>';
             } else {
-                html += '<div class="stats-section stats-valuation"><h3>&#128176; Collection Value</h3>';
-                html += '<p class="stats-valuation-hint">Click the <strong>&#128176; Value</strong> button on individual records to fetch Discogs pricing.</p>';
+                html += `<div class="stats-section stats-valuation"><h3>&#128176; ${escHtml(t('stats.collectionValue', {}, 'Collection Value'))}</h3>`;
+                html += `<p class="stats-valuation-hint">${t('stats.valueHint', {}, 'Click the <strong>&#128176; Value</strong> button on individual records to fetch Discogs pricing.')}</p>`;
                 html += '</div>';
             }
 
             $statsBody.innerHTML = html;
         } catch {
-            $statsBody.innerHTML = '<p class="loading">Failed to load statistics.</p>';
+            $statsBody.innerHTML = `<p class="loading">${escHtml(t('stats.failed', {}, 'Failed to load statistics.'))}</p>`;
         }
     }
 

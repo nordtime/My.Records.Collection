@@ -9,6 +9,9 @@
     'use strict';
 
     const AUTH = 'api/auth.php';
+    const t = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
     window.RC_CSRF = null;
     window.RC_USER = null;
 
@@ -36,7 +39,7 @@
         const g = document.createElement('div');
         g.id = 'authGate';
         g.className = 'auth-gate';
-        g.innerHTML = '<div class="auth-gate-spinner" role="status" aria-label="Loading"></div>';
+        g.innerHTML = '<div class="auth-gate-spinner" role="status" aria-label="Loading" data-i18n-aria-label="common.loading"></div>';
         document.body.appendChild(g);
     }
     function hideGate() {
@@ -58,24 +61,24 @@
         wrap.id = 'account-menu';
         const initial = (user.username || '?').charAt(0).toUpperCase();
         wrap.innerHTML = `
-            <button class="btn btn-ghost" id="accountBtn" aria-haspopup="true" aria-expanded="false" title="Account">
+            <button class="btn btn-ghost" id="accountBtn" aria-haspopup="true" aria-expanded="false" title="Account" data-i18n-title="nav.account">
                 <span class="account-avatar" aria-hidden="true">${initial}</span>
                 <span class="account-name">${escapeHtml(user.username)}</span> &#9662;
             </button>
-            <div class="menu-popover hidden" role="menu" aria-label="Account">
+            <div class="menu-popover hidden" role="menu" aria-label="Account" data-i18n-aria-label="nav.account">
                 <div class="account-head">
                     <div class="account-head-name">${escapeHtml(user.username)}</div>
                     <div class="account-head-email">${escapeHtml(user.email || '')}</div>
-                    ${user.role === 'admin' ? '<span class="account-role-badge">Admin</span>' : ''}
+                    ${user.role === 'admin' ? '<span class="account-role-badge" data-i18n="account.admin">Admin</span>' : ''}
                 </div>
                 <div class="menu-popover-sep"></div>
-                ${user.role === 'admin' ? '<button class="menu-popover-item" id="menuAdmin" role="menuitem">👥 User management</button>' : ''}
-                <button class="menu-popover-item" id="menuSettings" role="menuitem">⚙️ Settings</button>
-                <a class="menu-popover-item" href="help.html" role="menuitem">❓ Help &amp; how-to</a>
-                <button class="menu-popover-item" id="menuDisclaimer" role="menuitem">📄 Disclaimer</button>
+                ${user.role === 'admin' ? '<button class="menu-popover-item" id="menuAdmin" role="menuitem">👥 <span data-i18n="account.userManagement">User management</span></button>' : ''}
+                <button class="menu-popover-item" id="menuSettings" role="menuitem">⚙️ <span data-i18n="common.settings">Settings</span></button>
+                <a class="menu-popover-item" href="help.html" role="menuitem">❓ <span data-i18n="account.help">Help &amp; how-to</span></a>
+                <button class="menu-popover-item" id="menuDisclaimer" role="menuitem">📄 <span data-i18n="common.disclaimer">Disclaimer</span></button>
                 <div class="menu-popover-sep"></div>
-                <button class="menu-popover-item" id="menuDelete" role="menuitem">🗑️ Delete my account</button>
-                <button class="menu-popover-item" id="menuLogout" role="menuitem">🚪 Sign out</button>
+                <button class="menu-popover-item" id="menuDelete" role="menuitem">🗑️ <span data-i18n="account.delete">Delete my account</span></button>
+                <button class="menu-popover-item" id="menuLogout" role="menuitem">🚪 <span data-i18n="nav.signOut">Sign out</span></button>
             </div>
         `;
         nav.appendChild(wrap);
@@ -123,21 +126,21 @@
             modal.innerHTML = `
                 <div class="modal modal-sm">
                     <div class="modal-header">
-                        <h2>Delete my account</h2>
-                        <button class="btn-close modal-close" aria-label="Close">&times;</button>
+                        <h2 data-i18n="account.deleteTitle">Delete my account</h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <p class="danger-text">This permanently deletes your account and <strong>all</strong> of your
+                        <p class="danger-text" data-i18n-html="account.deleteWarning">This permanently deletes your account and <strong>all</strong> of your
                         records, wishlist, ratings, tags, and listening history. This cannot be undone.</p>
-                        <p>Consider using <strong>Data &#9662; → Backup</strong> first.</p>
+                        <p data-i18n-html="account.backupFirst">Consider using <strong>Data &#9662; → Backup</strong> first.</p>
                         <form id="deleteAccountForm">
                             <div class="form-group">
-                                <label for="deleteConfirmPw">Confirm your password</label>
+                                <label for="deleteConfirmPw" data-i18n="account.confirmPassword">Confirm your password</label>
                                 <input type="password" id="deleteConfirmPw" class="input" autocomplete="current-password" required>
                             </div>
                             <div class="form-actions">
-                                <button type="button" class="btn btn-ghost modal-close">Cancel</button>
-                                <button type="submit" class="btn btn-danger">Delete forever</button>
+                                <button type="button" class="btn btn-ghost modal-close" data-i18n="common.cancel">Cancel</button>
+                                <button type="submit" class="btn btn-danger" data-i18n="account.deleteForever">Delete forever</button>
                             </div>
                         </form>
                     </div>
@@ -156,9 +159,9 @@
                     });
                     const data = await res.json();
                     if (data.success) { redirectToLogin(); return; }
-                    if (window.ToastNotifications) window.ToastNotifications.error(data.message || 'Could not delete account.');
+                    if (window.ToastNotifications) window.ToastNotifications.error(data.message || t('account.deleteFailed', {}, 'Could not delete account.'));
                 } catch (err) {
-                    if (window.ToastNotifications) window.ToastNotifications.error('Network error.');
+                    if (window.ToastNotifications) window.ToastNotifications.error(t('auth.networkError', {}, 'Network error.'));
                 }
             });
         }
@@ -179,70 +182,70 @@
             modal.innerHTML = `
                 <div class="modal">
                     <div class="modal-header">
-                        <h2>⚙️ Settings</h2>
-                        <button class="btn-close modal-close" aria-label="Close">&times;</button>
+                        <h2>⚙️ <span data-i18n="common.settings">Settings</span></h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <h3 class="settings-section-title">Discogs API token</h3>
-                        <p class="settings-help">Your personal token is used to look up marketplace
+                        <h3 class="settings-section-title" data-i18n="settings.discogsToken">Discogs API token</h3>
+                        <p class="settings-help" data-i18n-html="settings.discogsHelp">Your personal token is used to look up marketplace
                         values for your records. It is stored on your account only.
                         <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener">
                         How to get a Discogs token →</a></p>
                         <ol class="settings-steps">
-                            <li>Sign in to Discogs and open <strong>Settings → Developers</strong>.</li>
-                            <li>Click <strong>Generate new token</strong> under the personal access token section.</li>
-                            <li>Copy the token and paste it below.</li>
+                            <li data-i18n-html="settings.discogsStep1">Sign in to Discogs and open <strong>Settings → Developers</strong>.</li>
+                            <li data-i18n-html="settings.discogsStep2">Click <strong>Generate new token</strong> under the personal access token section.</li>
+                            <li data-i18n-html="settings.discogsStep3">Copy the token and paste it below.</li>
                         </ol>
                         <form id="discogsTokenForm">
                             <div class="form-group">
-                                <label for="discogsTokenInput">Personal access token</label>
+                                <label for="discogsTokenInput" data-i18n="settings.personalToken">Personal access token</label>
                                 <input type="password" id="discogsTokenInput" class="input" autocomplete="off"
-                                    placeholder="Paste your Discogs token">
+                                    placeholder="Paste your Discogs token" data-i18n-placeholder="settings.tokenPlaceholder">
                                 <small class="form-hint" id="discogsTokenStatus"></small>
                             </div>
                             <div class="form-actions">
-                                <button type="button" class="btn btn-ghost" id="discogsTokenClear">Clear token</button>
-                                <button type="submit" class="btn btn-primary">Save token</button>
+                                <button type="button" class="btn btn-ghost" id="discogsTokenClear" data-i18n="settings.clearToken">Clear token</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="settings.saveToken">Save token</button>
                             </div>
                         </form>
 
                         <hr class="settings-divider">
-                        <h3 class="settings-section-title">Change password</h3>
+                        <h3 class="settings-section-title" data-i18n="settings.changePassword">Change password</h3>
                         <form id="changePasswordForm">
                             <div class="form-group">
-                                <label for="cp-current">Current password</label>
+                                <label for="cp-current" data-i18n="settings.currentPassword">Current password</label>
                                 <input type="password" id="cp-current" class="input" autocomplete="current-password" required>
                             </div>
                             <div class="form-group">
-                                <label for="cp-new">New password</label>
+                                <label for="cp-new" data-i18n="auth.newPassword">New password</label>
                                 <input type="password" id="cp-new" class="input" autocomplete="new-password" minlength="8" required
                                     aria-describedby="cp-hint">
-                                <small id="cp-hint" class="form-hint">At least 8 characters, including a letter and a number.</small>
+                                <small id="cp-hint" class="form-hint" data-i18n="auth.passwordHint">At least 8 characters, including a letter and a number.</small>
                             </div>
                             <div class="form-group">
-                                <label for="cp-confirm">Confirm new password</label>
+                                <label for="cp-confirm" data-i18n="settings.confirmNewPassword">Confirm new password</label>
                                 <input type="password" id="cp-confirm" class="input" autocomplete="new-password" required>
                             </div>
                             <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Change password</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="settings.changePassword">Change password</button>
                             </div>
                         </form>
 
                         <hr class="settings-divider">
-                        <h3 class="settings-section-title">Change email</h3>
+                        <h3 class="settings-section-title" data-i18n="settings.changeEmail">Change email</h3>
                         <p class="settings-help" id="currentEmailLine"></p>
                         <form id="changeEmailForm">
                             <div class="form-group">
-                                <label for="ce-email">New email address</label>
+                                <label for="ce-email" data-i18n="settings.newEmail">New email address</label>
                                 <input type="email" id="ce-email" class="input" autocomplete="email" required>
                             </div>
                             <div class="form-group">
-                                <label for="ce-password">Confirm your password</label>
+                                <label for="ce-password" data-i18n="account.confirmPassword">Confirm your password</label>
                                 <input type="password" id="ce-password" class="input" autocomplete="current-password" required>
                             </div>
-                            <p class="form-hint">We'll email a link to the new address. Your current email stays active until you confirm.</p>
+                            <p class="form-hint" data-i18n="settings.emailHint">We'll email a link to the new address. Your current email stays active until you confirm.</p>
                             <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Update email</button>
+                                <button type="submit" class="btn btn-primary" data-i18n="settings.updateEmail">Update email</button>
                             </div>
                         </form>
                     </div>
@@ -263,7 +266,7 @@
         updateDiscogsStatus();
         document.getElementById('discogsTokenInput').value = '';
         const emailLine = document.getElementById('currentEmailLine');
-        if (emailLine && window.RC_USER) emailLine.textContent = 'Current email: ' + window.RC_USER.email;
+        if (emailLine && window.RC_USER) emailLine.textContent = t('settings.currentEmail', { email: window.RC_USER.email }, 'Current email: ' + window.RC_USER.email);
         modal.classList.remove('hidden');
     }
 
@@ -272,7 +275,7 @@
         const current = document.getElementById('cp-current').value;
         const nw = document.getElementById('cp-new').value;
         const confirm = document.getElementById('cp-confirm').value;
-        if (nw !== confirm) { if (window.ToastNotifications) window.ToastNotifications.error('New passwords do not match.'); return; }
+        if (nw !== confirm) { if (window.ToastNotifications) window.ToastNotifications.error(t('settings.passwordMismatch', {}, 'New passwords do not match.')); return; }
         try {
             const res = await fetch(AUTH, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -281,12 +284,12 @@
             const data = await res.json();
             if (data.success) {
                 document.getElementById('changePasswordForm').reset();
-                if (window.ToastNotifications) window.ToastNotifications.success(data.message || 'Password changed.');
+                if (window.ToastNotifications) window.ToastNotifications.success(data.message || t('settings.passwordChanged', {}, 'Password changed.'));
             } else if (window.ToastNotifications) {
-                window.ToastNotifications.error(data.message || 'Could not change password.');
+                window.ToastNotifications.error(data.message || t('settings.passwordFailed', {}, 'Could not change password.'));
             }
         } catch (err) {
-            if (window.ToastNotifications) window.ToastNotifications.error('Network error.');
+            if (window.ToastNotifications) window.ToastNotifications.error(t('auth.networkError', {}, 'Network error.'));
         }
     }
 
@@ -302,12 +305,12 @@
             const data = await res.json();
             if (data.success) {
                 document.getElementById('changeEmailForm').reset();
-                if (window.ToastNotifications) window.ToastNotifications.success(data.message || 'Check your new inbox to confirm.');
+                if (window.ToastNotifications) window.ToastNotifications.success(data.message || t('settings.checkInbox', {}, 'Check your new inbox to confirm.'));
             } else if (window.ToastNotifications) {
-                window.ToastNotifications.error(data.message || 'Could not update email.');
+                window.ToastNotifications.error(data.message || t('settings.emailFailed', {}, 'Could not update email.'));
             }
         } catch (err) {
-            if (window.ToastNotifications) window.ToastNotifications.error('Network error.');
+            if (window.ToastNotifications) window.ToastNotifications.error(t('auth.networkError', {}, 'Network error.'));
         }
     }
 
@@ -316,7 +319,7 @@
         if (el) {
             el.textContent = window.RC_DISCOGS_SET
                 ? '✓ A token is saved. Enter a new one to replace it, or clear it.'
-                : 'No token saved yet.';
+                : t('settings.noToken', {}, 'No token saved yet.');
         }
     }
 
@@ -333,10 +336,10 @@
                 document.getElementById('discogsTokenInput').value = '';
                 if (window.ToastNotifications) window.ToastNotifications.success(data.discogs_token_set ? 'Discogs token saved' : 'Discogs token cleared');
             } else if (window.ToastNotifications) {
-                window.ToastNotifications.error(data.message || 'Could not save token.');
+                window.ToastNotifications.error(data.message || t('settings.tokenFailed', {}, 'Could not save token.'));
             }
         } catch (e) {
-            if (window.ToastNotifications) window.ToastNotifications.error('Network error.');
+            if (window.ToastNotifications) window.ToastNotifications.error(t('auth.networkError', {}, 'Network error.'));
         }
     }
 
@@ -349,8 +352,8 @@
             modal.innerHTML = `
                 <div class="modal">
                     <div class="modal-header">
-                        <h2>Data &amp; Usage Disclaimer</h2>
-                        <button class="btn-close modal-close" aria-label="Close">&times;</button>
+                        <h2 data-i18n="auth.disclaimerTitle">Data &amp; Usage Disclaimer</h2>
+                        <button class="btn-close modal-close" aria-label="Close" data-i18n-aria-label="common.close">&times;</button>
                     </div>
                     <div class="modal-body">${window.RC_DISCLAIMER_HTML || ''}</div>
                 </div>`;
@@ -372,8 +375,8 @@
         bar.setAttribute('role', 'region');
         bar.setAttribute('aria-label', 'Cookie notice');
         bar.innerHTML = `
-            <p>${window.RC_COOKIE_NOTICE || 'This site uses an essential cookie to keep you signed in.'}</p>
-            <button class="btn btn-primary btn-sm" id="cookieAccept">Got it</button>`;
+            <p>${window.RC_COOKIE_NOTICE || t('cookie.notice', {}, 'This site uses an essential cookie to keep you signed in.')}</p>
+            <button class="btn btn-primary btn-sm" id="cookieAccept" data-i18n="cookie.accept">Got it</button>`;
         document.body.appendChild(bar);
         bar.querySelector('#cookieAccept').addEventListener('click', () => {
             localStorage.setItem('rc-cookie-consent', '1');

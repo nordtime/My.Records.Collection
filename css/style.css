@@ -15,6 +15,7 @@
     --text-primary:   #e6edf3;
     --text-secondary: #8b949e;
     --text-muted:     #6e7681;
+    --link-color:     #ffffff;
 
     --accent:         #58a6ff;
     --accent-hover:   #79c0ff;
@@ -55,6 +56,7 @@
     --text-primary:   #1f2328;
     --text-secondary: #59636e;
     --text-muted:     #818b98;
+    --link-color:     #000000;
 
     --accent:         #0969da;
     --accent-hover:   #0860c9;
@@ -87,6 +89,7 @@
         --text-primary:   #1f2328;
         --text-secondary: #59636e;
         --text-muted:     #818b98;
+        --link-color:     #000000;
 
         --accent:         #0969da;
         --accent-hover:   #0860c9;
@@ -128,7 +131,97 @@ body {
     line-height: 1.6;
 }
 
+a,
+a:hover {
+    color: var(--link-color);
+}
+
+html[lang="he"] {
+    --font-body: 'Noto Sans Hebrew', 'Segoe UI', sans-serif;
+    --font-head: 'Noto Sans Hebrew', 'Segoe UI', sans-serif;
+}
+
 .hidden { display: none !important; }
+
+.language-toggle {
+    position: fixed;
+    inset-block-start: 0.75rem;
+    inset-inline-end: 0.75rem;
+    z-index: 1200;
+    min-width: 2.5rem;
+    padding: 0.35rem 0.5rem;
+    font: 600 0.8rem/1.4 var(--font-body);
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+}
+
+.language-toggle:hover,
+.language-toggle:focus-visible {
+    border-color: var(--border-focus);
+    outline: none;
+}
+
+.header-nav .language-toggle {
+    position: static;
+}
+
+html[dir="rtl"] input,
+html[dir="rtl"] textarea {
+    text-align: start;
+}
+
+html[dir="rtl"] input[type="url"],
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="password"] {
+    direction: ltr;
+    text-align: left;
+}
+
+html[dir="rtl"] .select {
+    background-position: left 0.6rem center;
+    padding-right: 0.75rem;
+    padding-left: 2rem;
+}
+
+html[dir="rtl"] .search-input-wrapper .input:first-child {
+    padding-right: 0.75rem;
+    padding-left: 120px;
+}
+
+html[dir="rtl"] .search-scope-select {
+    right: auto;
+    left: 0;
+    border-right: 1px solid var(--border);
+    border-left: 0;
+}
+
+html[dir="rtl"] .menu-popover,
+html[dir="rtl"] .account-menu .menu-popover {
+    right: auto;
+    left: 0;
+    text-align: start;
+}
+
+html[dir="rtl"] .modal-header,
+html[dir="rtl"] .form-actions,
+html[dir="rtl"] .results-header,
+html[dir="rtl"] .card-meta,
+html[dir="rtl"] .card-actions {
+    direction: rtl;
+}
+
+html[dir="rtl"] .card-artist,
+html[dir="rtl"] .card-album,
+html[dir="rtl"] .card-notes,
+html[dir="rtl"] .tracklist-artist,
+html[dir="rtl"] .tracklist-album,
+html[dir="rtl"] .lyrics-panel-text {
+    text-align: start;
+}
 
 /* ── Header ────────────────────────────────────────────────── */
 .app-header {
@@ -147,6 +240,20 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+}
+
+.header-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-inline-start: auto;
+}
+
+.header-account-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .logo {
@@ -1151,7 +1258,7 @@ body {
     margin-bottom: 1rem;
 }
 .import-hint a {
-    color: var(--accent);
+    color: var(--link-color);
     text-decoration: none;
 }
 .import-hint a:hover {
@@ -1617,7 +1724,15 @@ body {
 /* Tablet (768px and below) */
 @media (max-width: 768px) {
     .header-inner { 
-        padding: 0.6rem 1rem; 
+        padding: 0.6rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .header-nav {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
     
     .logo h1 { 
@@ -1864,7 +1979,7 @@ body {
 .skip-link {
     position: absolute;
     top: -40px;
-    left: 0;
+    inset-inline-start: 0;
     background: var(--accent);
     color: #000;
     padding: 8px 16px;
@@ -2778,7 +2893,7 @@ kbd {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    color: var(--accent);
+    color: var(--link-color);
     text-decoration: none;
     transition: var(--transition);
 }
@@ -3326,14 +3441,14 @@ kbd {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--accent);
+    color: var(--link-color);
     text-decoration: none;
     font-size: 0.875rem;
     transition: var(--transition);
 }
 
 .wish-link:hover {
-    color: var(--accent-hover);
+    color: var(--link-color);
 }
 
 .wish-footer {
@@ -3741,8 +3856,9 @@ kbd {
 /* ── Auth pages & account UI ─────────────────────────────────── */
 .skip-link {
     position: absolute;
-    left: -9999px;
-    top: 0;
+    inset-inline-start: 1rem;
+    top: 1rem;
+    transform: translateY(calc(-100% - 2rem));
     background: var(--accent);
     color: #fff;
     padding: 0.6rem 1rem;
@@ -3750,8 +3866,7 @@ kbd {
     z-index: 2000;
 }
 .skip-link:focus {
-    left: 1rem;
-    top: 1rem;
+    transform: translateY(0);
 }
 
 .auth-body {
@@ -3820,7 +3935,7 @@ kbd {
 .captcha-row { display: flex; gap: 0.5rem; align-items: center; }
 .captcha-row .input { flex: 1; }
 .auth-consent { font-size: 0.8rem; color: var(--text-secondary); }
-.auth-consent a, .auth-legal a { color: var(--accent); }
+.auth-consent a, .auth-legal a { color: var(--link-color); }
 .auth-foot { margin-top: 0.85rem; font-size: 0.85rem; color: var(--text-secondary); text-align: center; }
 .auth-legal { margin-top: 1rem; text-align: center; font-size: 0.75rem; color: var(--text-muted); }
 .auth-alert {
@@ -3918,7 +4033,7 @@ kbd {
 /* Settings modal */
 .settings-section-title { font-size: 1rem; margin-bottom: 0.35rem; color: var(--text-primary); }
 .settings-help { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.6rem; }
-.settings-help a { color: var(--accent); }
+.settings-help a { color: var(--link-color); }
 .settings-steps { margin: 0 0 1rem 1.2rem; font-size: 0.85rem; color: var(--text-secondary); }
 .settings-steps li { margin-bottom: 0.25rem; }
 .settings-divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
@@ -3982,8 +4097,8 @@ kbd {
 .help-wrap h2 { font-family: var(--font-head); margin: 1.75rem 0 0.5rem; font-size: 1.2rem; }
 .help-wrap p, .help-wrap li { color: var(--text-secondary); line-height: 1.7; }
 .help-wrap ul, .help-wrap ol { margin: 0.5rem 0 0.5rem 1.25rem; }
-.help-wrap a { color: var(--accent); }
-.help-back { display: inline-block; margin-bottom: 1rem; color: var(--accent); }
+.help-wrap a { color: var(--link-color); }
+.help-back { display: inline-block; margin-bottom: 1rem; color: var(--link-color); }
 
 
 

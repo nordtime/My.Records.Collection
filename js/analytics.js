@@ -37,31 +37,31 @@
             const chartsSection = document.createElement('div');
             chartsSection.className = 'analytics-section';
             chartsSection.innerHTML = `
-                <h3 class="analytics-title">📊 Collection Analytics</h3>
+                <h3 class="analytics-title">📊 <span data-i18n="analytics.title">Collection Analytics</span></h3>
                 
                 <!-- Charts grid -->
                 <div class="analytics-charts-grid">
                     <!-- Format distribution -->
                     <div class="chart-card">
-                        <h4 class="chart-title">Format Distribution</h4>
+                        <h4 class="chart-title" data-i18n="analytics.formatDistribution">Format Distribution</h4>
                         <canvas id="formatChart"></canvas>
                     </div>
 
                     <!-- Genre distribution -->
                     <div class="chart-card">
-                        <h4 class="chart-title">Top 10 Genres</h4>
+                        <h4 class="chart-title" data-i18n="analytics.topGenres">Top 10 Genres</h4>
                         <canvas id="genreChart"></canvas>
                     </div>
 
                     <!-- Acquisition timeline -->
                     <div class="chart-card chart-card-wide">
-                        <h4 class="chart-title">Acquisition Timeline</h4>
+                        <h4 class="chart-title" data-i18n="analytics.timeline">Acquisition Timeline</h4>
                         <canvas id="timelineChart"></canvas>
                     </div>
 
                     <!-- Top artists -->
                     <div class="chart-card chart-card-wide">
-                        <h4 class="chart-title">Top 15 Artists</h4>
+                        <h4 class="chart-title" data-i18n="analytics.topArtists">Top 15 Artists</h4>
                         <canvas id="artistChart"></canvas>
                     </div>
                 </div>
@@ -72,7 +72,7 @@
                         <div class="stat-icon">💰</div>
                         <div class="stat-content">
                             <div class="stat-value" id="totalValue">$0.00</div>
-                            <div class="stat-label">Total Discogs Value</div>
+                            <div class="stat-label" data-i18n="analytics.totalValue">Total Discogs Value</div>
                         </div>
                     </div>
 
@@ -80,7 +80,7 @@
                         <div class="stat-icon">💎</div>
                         <div class="stat-content">
                             <div class="stat-value" id="mostValuable">—</div>
-                            <div class="stat-label">Most Valuable</div>
+                            <div class="stat-label" data-i18n="analytics.mostValuable">Most Valuable</div>
                         </div>
                     </div>
 
@@ -88,7 +88,7 @@
                         <div class="stat-icon">📅</div>
                         <div class="stat-content">
                             <div class="stat-value" id="avgPerMonth">0</div>
-                            <div class="stat-label">Avg per Month</div>
+                            <div class="stat-label" data-i18n="analytics.averageMonth">Avg per Month</div>
                         </div>
                     </div>
 
@@ -96,7 +96,7 @@
                         <div class="stat-icon">⭐</div>
                         <div class="stat-content">
                             <div class="stat-value" id="avgRating">—</div>
-                            <div class="stat-label">Avg Rating</div>
+                            <div class="stat-label" data-i18n="analytics.averageRating">Avg Rating</div>
                         </div>
                     </div>
 
@@ -104,7 +104,7 @@
                         <div class="stat-icon">🎵</div>
                         <div class="stat-content">
                             <div class="stat-value" id="mostPlayed">—</div>
-                            <div class="stat-label">Most Played</div>
+                            <div class="stat-label" data-i18n="analytics.mostPlayed">Most Played</div>
                         </div>
                     </div>
 
@@ -112,14 +112,14 @@
                         <div class="stat-icon">🆕</div>
                         <div class="stat-content">
                             <div class="stat-value" id="recentAddition">—</div>
-                            <div class="stat-label">Latest Addition</div>
+                            <div class="stat-label" data-i18n="analytics.latestAddition">Latest Addition</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Most valuable records table -->
                 <div class="analytics-table-section">
-                    <h4 class="analytics-subtitle">💎 Top 10 Most Valuable Records</h4>
+                    <h4 class="analytics-subtitle">💎 <span data-i18n="analytics.topValuable">Top 10 Most Valuable Records</span></h4>
                     <div class="valuable-records-table" id="valuableRecordsTable"></div>
                 </div>
             `;
@@ -287,7 +287,7 @@
                     labels: last12.map(([month]) => {
                         const [year, m] = month.split('-');
                         const date = new Date(year, parseInt(m) - 1);
-                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        return date.toLocaleDateString(window.I18n?.locale || 'en-US', { month: 'short', year: '2-digit' });
                     }),
                     datasets: [{
                         label: 'Records Added',
@@ -470,18 +470,18 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Album</th>
-                            <th>Artist</th>
-                            <th>Format</th>
-                            <th>Value</th>
+                            <th data-i18n="record.album">Album</th>
+                            <th data-i18n="record.artist">Artist</th>
+                            <th data-i18n="record.format">Format</th>
+                            <th data-i18n="record.discogsValue">Value</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${valuable.map((r, idx) => `
                             <tr class="valuable-row" data-record-id="${Number(r.id)}">
                                 <td class="rank-cell">${idx + 1}</td>
-                                <td class="album-cell">${this.escapeHtml(r.album)}</td>
-                                <td class="artist-cell">${this.escapeHtml(r.artist)}</td>
+                                <td class="album-cell" dir="auto">${this.escapeHtml(r.album)}</td>
+                                <td class="artist-cell" dir="auto">${this.escapeHtml(r.artist)}</td>
                                 <td class="format-cell">
                                     <span class="badge">${this.escapeHtml(r.format)}</span>
                                 </td>

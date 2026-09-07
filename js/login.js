@@ -6,6 +6,9 @@
 
     const AUTH = 'api/auth.php';
     const $ = (id) => document.getElementById(id);
+    const t = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     const alertBox = $('authAlert');
     let requestMode = 'reset'; // 'reset' | 'resend'
@@ -26,7 +29,7 @@
             const data = await res.json();
             $('captchaQuestion').textContent = data.question || '?';
         } catch (e) {
-            $('captchaQuestion').textContent = 'unavailable';
+            $('captchaQuestion').textContent = t('auth.unavailable', {}, 'unavailable');
         }
     }
 
@@ -51,7 +54,7 @@
             const data = await res.json();
             $('resetCaptchaQuestion').textContent = data.question || '?';
         } catch (e) {
-            $('resetCaptchaQuestion').textContent = 'unavailable';
+            $('resetCaptchaQuestion').textContent = t('auth.unavailable', {}, 'unavailable');
         }
     }
 
@@ -61,7 +64,9 @@
         $('registerForm').classList.add('hidden');
         $('resetRequestForm').classList.remove('hidden');
         $('resetRequestForm').querySelector('.auth-submit').textContent =
-            mode === 'resend' ? 'Resend verification email' : 'Send reset link';
+            mode === 'resend'
+                ? t('auth.resendVerification', {}, 'Resend verification email')
+                : t('auth.sendReset', {}, 'Send reset link');
         if (prefillEmail) $('reset-email').value = prefillEmail;
         loadResetCaptcha();
         $('reset-email').focus();
@@ -86,11 +91,11 @@
                 $('resetRequestForm').reset();
                 switchTab('login');
             } else {
-                showAlert(data.message || 'Request failed.', 'error');
+                showAlert(data.message || t('auth.requestFailed', {}, 'Request failed.'), 'error');
                 loadResetCaptcha();
             }
         } catch (err) {
-            showAlert('Network error. Please try again.', 'error');
+            showAlert(t('auth.networkError', {}, 'Network error. Please try again.'), 'error');
         } finally {
             btn.disabled = false;
         }
@@ -117,14 +122,14 @@
                 return;
             }
             if (data.unverified) {
-                showAlert(data.message + ' You can resend the link below.', 'error');
+                showAlert(data.message + ' ' + t('auth.resendHint', {}, 'You can resend the link below.'), 'error');
                 const email = identifier.includes('@') ? identifier : '';
                 showEmailRequest('resend', email);
                 return;
             }
-            showAlert(data.message || 'Sign in failed.', 'error');
+            showAlert(data.message || t('auth.signInFailed', {}, 'Sign in failed.'), 'error');
         } catch (err) {
-            showAlert('Network error. Please try again.', 'error');
+            showAlert(t('auth.networkError', {}, 'Network error. Please try again.'), 'error');
         } finally {
             btn.disabled = false;
         }
@@ -140,7 +145,7 @@
         const captcha = $('reg-captcha').value.trim();
 
         if (password !== confirm) {
-            showAlert('Passwords do not match.', 'error');
+            showAlert(t('auth.passwordMismatch', {}, 'Passwords do not match.'), 'error');
             return;
         }
         const btn = e.target.querySelector('.auth-submit');
@@ -161,14 +166,14 @@
                 // Account created but must verify email (or await approval)
                 $('registerForm').reset();
                 switchTab('login');
-                showAlert(data.message || 'Account created. Check your email to verify your account.', 'success');
+                showAlert(data.message || t('auth.accountCreated', {}, 'Account created. Check your email to verify your account.'), 'success');
                 return;
             }
-            showAlert(data.message || 'Could not create account.', 'error');
+            showAlert(data.message || t('auth.createFailed', {}, 'Could not create account.'), 'error');
             loadCaptcha();
             $('reg-captcha').value = '';
         } catch (err) {
-            showAlert('Network error. Please try again.', 'error');
+            showAlert(t('auth.networkError', {}, 'Network error. Please try again.'), 'error');
         } finally {
             btn.disabled = false;
         }
@@ -176,7 +181,7 @@
 
     function openDisclaimer(e) {
         if (e) e.preventDefault();
-        $('disclaimerBody').innerHTML = window.RC_DISCLAIMER_HTML || '<p>Disclaimer unavailable.</p>';
+        $('disclaimerBody').innerHTML = window.RC_DISCLAIMER_HTML || `<p>${t('auth.disclaimerUnavailable', {}, 'Disclaimer unavailable.')}</p>`;
         $('disclaimerModal').classList.remove('hidden');
     }
 
@@ -189,7 +194,7 @@
             if (!data.has_admin) {
                 // No admin yet — nudge the first user to create the admin account
                 switchTab('register');
-                $('regNote').textContent = 'No account exists yet — the first account you create becomes the administrator.';
+                $('regNote').textContent = t('auth.firstAdmin', {}, 'No account exists yet — the first account you create becomes the administrator.');
             }
         } catch (e) { /* offline — allow form use */ }
 

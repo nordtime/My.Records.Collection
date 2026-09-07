@@ -5,22 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify email · My Records Collection</title>
     <script src="js/theme-bootstrap.js?v=20260906200000"></script>
-    <link rel="stylesheet" href="css/style.css?v=20260827180000">
+    <script src="js/i18n.js?v=20260907170000"></script>
+    <link rel="stylesheet" href="css/style.css?v=20260907170000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Hebrew:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="auth-body">
+<body class="auth-body" data-i18n-title="verify.title">
     <main class="auth-wrap">
         <div class="auth-card">
             <div class="auth-brand">
                 <span class="logo-icon" aria-hidden="true">&#127926;</span>
-                <h1>My Records Collection</h1>
+                <h1 data-i18n="app.title">My Records Collection</h1>
             </div>
-            <div class="auth-alert" id="verifyStatus" role="status" aria-live="polite">Verifying your email…</div>
-            <p class="auth-foot"><a href="login.html" id="toLogin">Continue to sign in</a></p>
+            <div class="auth-alert" id="verifyStatus" role="status" aria-live="polite" data-i18n="verify.progress">Verifying your email…</div>
+            <p class="auth-foot"><a href="login.html" id="toLogin" data-i18n="verify.continue">Continue to sign in</a></p>
         </div>
     </main>
-    <script src="js/verify.js?v=20260906200000"></script>
+    <script src="js/verify.js?v=20260907020000"></script>
 </body>
 </html>

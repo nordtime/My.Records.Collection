@@ -6,6 +6,9 @@
     'use strict';
 
     const API = 'api/api.php';
+    const t = (key, values = {}, fallback = key) => window.I18n
+        ? window.I18n.t(key, values, fallback)
+        : fallback;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -15,7 +18,7 @@
 
     function fmtMoney(n) {
         const v = parseFloat(n) || 0;
-        return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        return '$' + v.toLocaleString(window.I18n?.locale || 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
     function card(icon, value, label, sub) {
@@ -47,10 +50,10 @@
             const plays = (sessions && sessions.stats) ? (sessions.stats.total_plays || 0) : 0;
 
             strip.innerHTML =
-                card('📀', total, 'Records') +
-                card('💰', val ? fmtMoney(val.total_value) : '—', 'Est. Value', val ? `${val.priced} priced` : 'run valuations') +
-                card('▶️', plays, 'Total Plays') +
-                card('🎸', topGenre, 'Top Genre');
+                card('📀', total, t('dashboard.records', {}, 'Records')) +
+                card('💰', val ? fmtMoney(val.total_value) : '—', t('dashboard.estimatedValue', {}, 'Est. Value'), val ? t('dashboard.priced', { count: val.priced }, `${val.priced} priced`) : t('dashboard.runValuations', {}, 'run valuations')) +
+                card('▶️', plays, t('dashboard.totalPlays', {}, 'Total Plays')) +
+                card('🎸', topGenre, t('dashboard.topGenre', {}, 'Top Genre'));
 
             strip.classList.remove('hidden');
         } catch (e) {
@@ -59,6 +62,8 @@
     }
 
     window.CollectionDashboard = { load };
+
+    document.addEventListener('rc:languagechange', load);
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', load);

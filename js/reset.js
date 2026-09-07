@@ -3,6 +3,7 @@
 
     const alertBox = document.getElementById('resetAlert');
     const form = document.getElementById('resetForm');
+    const t = (key, fallback) => window.I18n ? window.I18n.t(key, {}, fallback) : fallback;
     const token = new URLSearchParams(location.search).get('token') || '';
     history.replaceState(null, '', location.pathname);
 
@@ -13,7 +14,7 @@
     }
 
     if (!token) {
-        showAlert('This reset link is missing its token.', false);
+        showAlert(t('reset.missingToken', 'This reset link is missing its token.'), false);
         form.querySelector('.auth-submit').disabled = true;
     }
 
@@ -22,7 +23,7 @@
         const password = document.getElementById('reset-password').value;
         const confirmation = document.getElementById('reset-confirm').value;
         if (password !== confirmation) {
-            showAlert('Passwords do not match.', false);
+            showAlert(t('auth.passwordMismatch', 'Passwords do not match.'), false);
             return;
         }
 
@@ -35,14 +36,14 @@
             body: JSON.stringify({ action: 'reset_password', token, password }),
         }).then(response => response.json()).then(data => {
             if (data.success) {
-                showAlert(data.message + ' Redirecting to sign in...', true);
+                showAlert(data.message + ' ' + t('reset.redirecting', 'Redirecting to sign in...'), true);
                 setTimeout(() => { location.href = 'login.html'; }, 1800);
             } else {
-                showAlert(data.message || 'Could not reset password.', false);
+                showAlert(data.message || t('reset.failed', 'Could not reset password.'), false);
                 button.disabled = false;
             }
         }).catch(() => {
-            showAlert('Network error. Please try again.', false);
+            showAlert(t('auth.networkError', 'Network error. Please try again.'), false);
             button.disabled = false;
         });
     });
